@@ -7,5 +7,5 @@ providers = ["node"]
 
 [deploy]
 startCommand = "npm run db:push && npm run start"
-healthcheckPath = "/api/auth/me"
+healthcheckPath = "/api/health"
 restartPolicyType = "on_failure"
