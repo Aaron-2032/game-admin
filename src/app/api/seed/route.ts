@@ -90,6 +90,26 @@ export async function POST() {
       },
     })
 
+    await prisma.user.create({
+      data: {
+        username: 'master_loan',
+        displayName: '高利貸關主',
+        passwordHash: pwHash,
+        role: 'master',
+        masterType: 'loan',
+      },
+    })
+
+    await prisma.user.create({
+      data: {
+        username: 'master_fund',
+        displayName: '房價指數基金關主',
+        passwordHash: pwHash,
+        role: 'master',
+        masterType: 'indexfund',
+      },
+    })
+
     for (let i = 0; i < teams.length; i++) {
       await prisma.user.create({
         data: {
@@ -110,6 +130,8 @@ export async function POST() {
         { role: '房地產關主', username: 'master_re', password: 'demo123' },
         { role: '銀行關主', username: 'master_bank', password: 'demo123' },
         { role: '市場關主', username: 'master_market', password: 'demo123' },
+        { role: '高利貸關主', username: 'master_loan', password: 'demo123' },
+        { role: '房價指數基金關主', username: 'master_fund', password: 'demo123' },
         ...TEAMS.map((t, i) => ({ role: `${t.name}隊輔`, username: `team${i + 1}`, password: 'demo123' })),
       ],
     })

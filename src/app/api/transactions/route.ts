@@ -10,11 +10,12 @@ export async function GET(request: Request) {
   const teamId = searchParams.get('teamId')
   const masterType = searchParams.get('masterType')
 
+  const all = searchParams.get('all') === 'true'
   const where: Record<string, unknown> = {}
   if (since) where.createdAt = { gt: new Date(since) }
   if (teamId) where.teamId = teamId
   if (masterType) where.masterType = masterType
-  if (session.role === 'master' && session.masterType) {
+  if (!all && session.role === 'master' && session.masterType) {
     where.masterType = session.masterType
   }
 
@@ -79,9 +80,14 @@ export async function POST(request: Request) {
       })
     }
 
+    const budgetIncreaseTypes = ['loan', 'income', 'long_profit', 'short_profit', 'sale']
     await db.team.update({
       where: { id: teamId },
-      data: { budget: { decrement: Number(amount) } },
+      data: {
+        budget: budgetIncreaseTypes.includes(type)
+          ? { increment: Number(amount) }
+          : { decrement: Number(amount) },
+      },
     })
 
     return transaction
