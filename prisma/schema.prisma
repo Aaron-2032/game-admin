@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  displayName  String
+  passwordHash String
+  role         String
+  masterType   String?
+  teamId       String?
+  team         Team?         @relation(fields: [teamId], references: [id])
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+}
+
+model Team {
+  id           String        @id @default(cuid())
+  name         String
+  color        String
+  code         String        @unique
+  budget       Int           @default(10000)
+  users        User[]
+  transactions Transaction[]
+  ownedZones   Zone[]
+}
+
+model Zone {
+  id            String        @id @default(cuid())
+  name          String
+  code          String        @unique
+  gridX         Int
+  gridY         Int
+  type          String
+  basePrice     Int
+  ownedByTeamId String?
+  ownedByTeam   Team?         @relation(fields: [ownedByTeamId], references: [id])
+  transactions  Transaction[]
+}
+
+model Transaction {
+  id         String   @id @default(cuid())
+  teamId     String
+  team       Team     @relation(fields: [teamId], references: [id])
+  zoneId     String?
+  zone       Zone?    @relation(fields: [zoneId], references: [id])
+  masterId   String
+  master     User     @relation(fields: [masterId], references: [id])
+  masterType String
+  type       String
+  amount     Int
+  note       String?
+  createdAt  DateTime @default(now())
+}
