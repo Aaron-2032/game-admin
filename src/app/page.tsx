@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Map, Settings, Target, Users, Home, Landmark, ShoppingCart, Banknote, TrendingUp, Loader2 } from 'lucide-react'
 
 type UserCard = {
   id: string
@@ -13,13 +14,15 @@ type UserCard = {
   team: { name: string; color: string; code: string } | null
 }
 
-const MASTER_ICONS: Record<string, string> = {
-  realestate: '🏠',
-  bank: '🏦',
-  market: '🛒',
+function MasterIcon({ type, className }: { type: string; className?: string }) {
+  const cls = className || 'w-8 h-8'
+  if (type === 'realestate') return <Home className={cls} />
+  if (type === 'bank') return <Landmark className={cls} />
+  if (type === 'market') return <ShoppingCart className={cls} />
+  if (type === 'loan') return <Banknote className={cls} />
+  if (type === 'indexfund') return <TrendingUp className={cls} />
+  return <Target className={cls} />
 }
-
-const TEAM_ICONS = ['🔴', '🔵', '🟢', '🟡', '🟣', '🩷']
 
 export default function LoginPage() {
   const router = useRouter()
@@ -31,14 +34,8 @@ export default function LoginPage() {
   useEffect(() => {
     fetch('/api/users')
       .then((r) => r.json())
-      .then((data) => {
-        setUsers(data)
-        setLoading(false)
-      })
-      .catch(() => {
-        setError('無法載入身分列表，請確認資料庫已初始化')
-        setLoading(false)
-      })
+      .then((data) => { setUsers(data); setLoading(false) })
+      .catch(() => { setError('無法載入身分列表，請確認資料庫已初始化'); setLoading(false) })
   }, [])
 
   async function handleSelect(username: string) {
@@ -69,7 +66,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-950 px-4 py-10">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-10">
-          <div className="text-6xl mb-3">🗺️</div>
+          <div className="flex justify-center mb-3">
+            <Map className="w-16 h-16 text-blue-400" strokeWidth={1.5} />
+          </div>
           <h1 className="text-3xl font-bold text-white">大地遊戲管理系統</h1>
           <p className="text-gray-400 mt-2">請選擇您的身分</p>
         </div>
@@ -81,7 +80,10 @@ export default function LoginPage() {
         )}
 
         {loading ? (
-          <div className="text-center text-gray-500 py-20">載入中...</div>
+          <div className="flex justify-center items-center py-20 text-gray-500 gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>載入中...</span>
+          </div>
         ) : users.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-400 mb-4">尚未初始化資料</p>
@@ -101,11 +103,11 @@ export default function LoginPage() {
         ) : (
           <div className="space-y-8">
             {admins.length > 0 && (
-              <Section title="總控管理員" icon="⚙️">
+              <Section title="總控管理員" icon={<Settings className="w-4 h-4 text-gray-400" />}>
                 {admins.map((u) => (
                   <IdentityCard
                     key={u.id}
-                    icon="⚙️"
+                    icon={<Settings className="w-8 h-8" strokeWidth={1.5} />}
                     label={u.displayName}
                     sub="可查看所有金流"
                     color="#6B7280"
@@ -117,11 +119,11 @@ export default function LoginPage() {
             )}
 
             {masters.length > 0 && (
-              <Section title="關主" icon="🎯">
+              <Section title="關主" icon={<Target className="w-4 h-4 text-gray-400" />}>
                 {masters.map((u) => (
                   <IdentityCard
                     key={u.id}
-                    icon={MASTER_ICONS[u.masterType || ''] || '🎯'}
+                    icon={<MasterIcon type={u.masterType || ''} />}
                     label={u.displayName}
                     sub={`${u.masterType} 關主`}
                     color="#3B82F6"
@@ -133,12 +135,17 @@ export default function LoginPage() {
             )}
 
             {assistants.length > 0 && (
-              <Section title="隊輔" icon="👥">
+              <Section title="隊輔" icon={<Users className="w-4 h-4 text-gray-400" />}>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {assistants.map((u, i) => (
+                  {assistants.map((u) => (
                     <IdentityCard
                       key={u.id}
-                      icon={TEAM_ICONS[i % TEAM_ICONS.length]}
+                      icon={
+                        <div
+                          className="w-8 h-8 rounded-full border-2 border-current"
+                          style={{ backgroundColor: `${u.team?.color || '#6B7280'}33`, borderColor: u.team?.color || '#6B7280' }}
+                        />
+                      }
                       label={u.team?.name || u.displayName}
                       sub="隊輔（唯讀地圖）"
                       color={u.team?.color || '#6B7280'}
@@ -157,11 +164,11 @@ export default function LoginPage() {
   )
 }
 
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <span>{icon}</span>
+        {icon}
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">{title}</h2>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{children}</div>
@@ -172,16 +179,14 @@ function Section({ title, icon, children }: { title: string; icon: string; child
 function IdentityCard({
   icon, label, sub, color, loading, onClick, compact = false,
 }: {
-  icon: string; label: string; sub: string; color: string
+  icon: React.ReactNode; label: string; sub: string; color: string
   loading: boolean; onClick: () => void; compact?: boolean
 }) {
   return (
     <button
       onClick={onClick}
       disabled={!!loading}
-      className={`w-full text-left rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${
-        compact ? 'p-3' : 'p-4'
-      }`}
+      className={`w-full text-left rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${compact ? 'p-3' : 'p-4'}`}
       style={{
         borderColor: loading ? color : 'transparent',
         backgroundColor: `${color}18`,
@@ -191,7 +196,9 @@ function IdentityCard({
       onMouseLeave={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent' }}
     >
       <div className={`flex items-center gap-3 ${compact ? '' : 'mb-1'}`}>
-        <span className={compact ? 'text-2xl' : 'text-3xl'}>{loading ? '⏳' : icon}</span>
+        <span className={`flex-shrink-0 ${compact ? 'w-6 h-6' : 'w-8 h-8'}`} style={{ color: loading ? '#9CA3AF' : color }}>
+          {loading ? <Loader2 className="w-full h-full animate-spin" /> : icon}
+        </span>
         <div>
           <div className="font-semibold text-white text-sm">{label}</div>
           {!compact && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}

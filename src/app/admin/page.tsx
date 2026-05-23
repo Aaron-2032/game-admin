@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Map, ClipboardList, Banknote, Users, Building2, Home, Landmark, ShoppingCart, TrendingUp, Settings } from 'lucide-react'
 
 type Transaction = {
   id: string
@@ -25,18 +26,30 @@ type Team = {
 }
 
 const MASTER_LABELS: Record<string, string> = {
-  realestate: '🏠 房地產',
-  bank: '🏦 銀行',
-  market: '🛒 市場',
-  admin: '⚙️ 管理',
+  realestate: '房地產',
+  bank: '銀行',
+  market: '市場',
+  loan: '高利貸',
+  indexfund: '指數基金',
+  admin: '管理',
+}
+
+function MasterTypeIcon({ type }: { type: string }) {
+  const cls = 'w-3.5 h-3.5 inline-block mr-1 opacity-70'
+  if (type === 'realestate') return <Home className={cls} />
+  if (type === 'bank') return <Landmark className={cls} />
+  if (type === 'market') return <ShoppingCart className={cls} />
+  if (type === 'loan') return <Banknote className={cls} />
+  if (type === 'indexfund') return <TrendingUp className={cls} />
+  return <Settings className={cls} />
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  purchase: '購買',
-  sale: '出售',
-  fee: '費用',
-  income: '收入',
+  purchase: '購買', sale: '出售', fee: '費用', income: '收入',
+  loan: '放款', repayment: '還款',
+  long: '做多', short: '做空', long_profit: '做多獲利', short_profit: '做空獲利',
 }
+const INCOME_TYPES = ['income', 'loan', 'long_profit', 'short_profit', 'sale']
 
 export default function AdminPage() {
   const router = useRouter()
@@ -77,23 +90,26 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">🗺️</span>
+          <Map className="w-6 h-6 text-blue-400" strokeWidth={1.5} />
           <div>
             <h1 className="text-white font-bold text-lg">總控儀表板</h1>
             <p className="text-gray-400 text-xs">所有金流匯總</p>
           </div>
         </div>
-        <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">
-          登出
-        </button>
+        <div className="flex items-center gap-3">
+          <a href="/log" className="text-xs text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-1">
+            <ClipboardList className="w-3.5 h-3.5" />流水帳
+          </a>
+          <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">登出</button>
+        </div>
       </header>
 
       <div className="p-6 space-y-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="交易總筆數" value={transactions.length.toString()} icon="📋" />
-          <StatCard label="總金流" value={`$${totalSpent.toLocaleString()}`} icon="💰" />
-          <StatCard label="小隊數量" value={teams.length.toString()} icon="👥" />
-          <StatCard label="已購區域" value={teams.reduce((s, t) => s + t._count.ownedZones, 0).toString()} icon="🏘️" />
+          <StatCard label="交易總筆數" value={transactions.length.toString()} icon={<ClipboardList className="w-5 h-5" />} />
+          <StatCard label="總金流" value={`$${totalSpent.toLocaleString()}`} icon={<Banknote className="w-5 h-5" />} />
+          <StatCard label="小隊數量" value={teams.length.toString()} icon={<Users className="w-5 h-5" />} />
+          <StatCard label="已購區域" value={teams.reduce((s, t) => s + t._count.ownedZones, 0).toString()} icon={<Building2 className="w-5 h-5" />} />
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
@@ -141,12 +157,12 @@ export default function AdminPage() {
   )
 }
 
-function StatCard({ label, value, icon }: { label: string; value: string; icon: string }) {
+function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
     <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-xl">{icon}</span>
-        <span className="text-gray-400 text-sm">{label}</span>
+      <div className="flex items-center gap-2 mb-1 text-gray-400">
+        {icon}
+        <span className="text-sm">{label}</span>
       </div>
       <div className="text-2xl font-bold text-white">{value}</div>
     </div>
@@ -154,12 +170,7 @@ function StatCard({ label, value, icon }: { label: string; value: string; icon: 
 }
 
 function TransactionRow({ tx }: { tx: Transaction }) {
-  const MASTER_LABELS: Record<string, string> = {
-    realestate: '🏠 房地產',
-    bank: '🏦 銀行',
-    market: '🛒 市場',
-    admin: '⚙️ 管理',
-  }
+  const isPositive = INCOME_TYPES.includes(tx.type)
   return (
     <div className="px-5 py-3 flex items-center gap-4 hover:bg-gray-800/50 transition-colors">
       <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: tx.team.color }} />
@@ -168,14 +179,15 @@ function TransactionRow({ tx }: { tx: Transaction }) {
           <span className="font-medium text-white text-sm">{tx.team.name}</span>
           {tx.zone && <span className="text-gray-400 text-xs">→ {tx.zone.name}</span>}
         </div>
-        <div className="text-xs text-gray-500 mt-0.5">
+        <div className="text-xs text-gray-500 mt-0.5 flex items-center">
+          <MasterTypeIcon type={tx.masterType} />
           {MASTER_LABELS[tx.masterType] || tx.masterType} · {tx.master.displayName}
           {tx.note && ` · ${tx.note}`}
         </div>
       </div>
       <div className="text-right flex-shrink-0">
-        <div className={`font-semibold text-sm ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-          {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}
+        <div className={`font-semibold text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+          {isPositive ? '+' : '-'}${tx.amount.toLocaleString()}
         </div>
         <div className="text-xs text-gray-500">
           {new Date(tx.createdAt).toLocaleTimeString('zh-TW')}

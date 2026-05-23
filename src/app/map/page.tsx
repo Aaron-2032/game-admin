@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Home, Pickaxe, Star, MapPin } from 'lucide-react'
 
 type Zone = {
   id: string
@@ -24,10 +25,12 @@ type Team = {
   _count: { ownedZones: number }
 }
 
-const ZONE_TYPE_ICONS: Record<string, string> = {
-  realestate: '🏠',
-  resource: '⛏️',
-  special: '⭐',
+function ZoneTypeIcon({ type, className }: { type: string; className?: string }) {
+  const cls = className || 'w-3 h-3'
+  if (type === 'realestate') return <Home className={cls} strokeWidth={1.5} />
+  if (type === 'resource') return <Pickaxe className={cls} strokeWidth={1.5} />
+  if (type === 'special') return <Star className={cls} strokeWidth={1.5} />
+  return <MapPin className={cls} strokeWidth={1.5} />
 }
 
 export default function MapPage() {
@@ -70,6 +73,12 @@ export default function MapPage() {
 
   const myTeam = user?.teamId ? teams.find((t) => t.id === user.teamId) : null
 
+  const ZONE_TYPE_LABELS: Record<string, string> = {
+    realestate: '房地產',
+    resource: '資源區',
+    special: '特殊區',
+  }
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
@@ -103,20 +112,17 @@ export default function MapPage() {
                           selected?.id === zone.id ? 'ring-2 ring-white' : ''
                         } ${isMyTeam ? 'border-white' : 'border-gray-700'}`}
                         style={{
-                          backgroundColor: isOwned
-                            ? `${zone.ownedByTeam!.color}33`
-                            : 'rgb(31 41 55)',
+                          backgroundColor: isOwned ? `${zone.ownedByTeam!.color}33` : 'rgb(31 41 55)',
                           borderColor: isOwned ? zone.ownedByTeam!.color : undefined,
                         }}
                         title={zone.name}
                       >
-                        <span className="text-xs leading-none">{ZONE_TYPE_ICONS[zone.type] || '📍'}</span>
+                        <span className="text-gray-400 flex items-center justify-center">
+                          <ZoneTypeIcon type={zone.type} />
+                        </span>
                         <span className="text-[10px] text-gray-300 mt-0.5 font-mono">{zone.code}</span>
                         {isOwned && (
-                          <span
-                            className="text-[8px] font-bold mt-0.5"
-                            style={{ color: zone.ownedByTeam!.color }}
-                          >
+                          <span className="text-[8px] font-bold mt-0.5" style={{ color: zone.ownedByTeam!.color }}>
                             {zone.ownedByTeam!.code}
                           </span>
                         )}
@@ -126,7 +132,16 @@ export default function MapPage() {
                 )}
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-3">
+                {/* Zone type legend */}
+                <div className="flex items-center gap-3 text-xs text-gray-500 border-r border-gray-700 pr-3 mr-1">
+                  {(['realestate', 'resource', 'special'] as const).map((t) => (
+                    <span key={t} className="flex items-center gap-1">
+                      <ZoneTypeIcon type={t} className="w-3 h-3" />
+                      {ZONE_TYPE_LABELS[t]}
+                    </span>
+                  ))}
+                </div>
                 {teams.map((team) => (
                   <div key={team.id} className="flex items-center gap-1.5 text-xs">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: team.color }} />
@@ -155,9 +170,12 @@ export default function MapPage() {
                     <span className="text-gray-400">名稱</span>
                     <span className="text-white">{selected.name}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-400">類型</span>
-                    <span className="text-white">{ZONE_TYPE_ICONS[selected.type]} {selected.type}</span>
+                    <span className="text-white flex items-center gap-1">
+                      <ZoneTypeIcon type={selected.type} className="w-3.5 h-3.5" />
+                      {ZONE_TYPE_LABELS[selected.type] || selected.type}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">底價</span>

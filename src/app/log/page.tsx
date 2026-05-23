@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  ClipboardList, Home, Landmark, ShoppingCart, Banknote, TrendingUp,
+  Settings, ArrowLeft, X,
+} from 'lucide-react'
 
 type Transaction = {
   id: string
@@ -16,25 +20,26 @@ type Transaction = {
 }
 
 const TYPE_LABELS: Record<string, { label: string; color: string; sign: '+' | '-' }> = {
-  purchase:    { label: '購買',      color: 'text-red-400',    sign: '-' },
-  sale:        { label: '出售',      color: 'text-green-400',  sign: '+' },
-  fee:         { label: '費用',      color: 'text-red-400',    sign: '-' },
-  income:      { label: '收入',      color: 'text-green-400',  sign: '+' },
-  loan:        { label: '放款',      color: 'text-yellow-400', sign: '+' },
-  repayment:   { label: '還款',      color: 'text-green-400',  sign: '-' },
-  long:        { label: '做多',      color: 'text-red-400',    sign: '-' },
-  short:       { label: '做空',      color: 'text-red-400',    sign: '-' },
-  long_profit: { label: '做多獲利',  color: 'text-green-400',  sign: '+' },
-  short_profit:{ label: '做空獲利',  color: 'text-green-400',  sign: '+' },
+  purchase:    { label: '購買',     color: 'text-red-400',    sign: '-' },
+  sale:        { label: '出售',     color: 'text-green-400',  sign: '+' },
+  fee:         { label: '費用',     color: 'text-red-400',    sign: '-' },
+  income:      { label: '收入',     color: 'text-green-400',  sign: '+' },
+  loan:        { label: '放款',     color: 'text-yellow-400', sign: '+' },
+  repayment:   { label: '還款',     color: 'text-green-400',  sign: '-' },
+  long:        { label: '做多',     color: 'text-red-400',    sign: '-' },
+  short:       { label: '做空',     color: 'text-red-400',    sign: '-' },
+  long_profit: { label: '做多獲利', color: 'text-green-400',  sign: '+' },
+  short_profit:{ label: '做空獲利', color: 'text-green-400',  sign: '+' },
 }
 
-const MASTER_ICONS: Record<string, string> = {
-  realestate: '🏠',
-  bank: '🏦',
-  market: '🛒',
-  loan: '💰',
-  indexfund: '📈',
-  admin: '⚙️',
+function MasterTypeIcon({ type }: { type: string }) {
+  const cls = 'w-4 h-4'
+  if (type === 'realestate') return <Home className={cls} strokeWidth={1.5} />
+  if (type === 'bank') return <Landmark className={cls} strokeWidth={1.5} />
+  if (type === 'market') return <ShoppingCart className={cls} strokeWidth={1.5} />
+  if (type === 'loan') return <Banknote className={cls} strokeWidth={1.5} />
+  if (type === 'indexfund') return <TrendingUp className={cls} strokeWidth={1.5} />
+  return <Settings className={cls} strokeWidth={1.5} />
 }
 
 export default function LogPage() {
@@ -64,23 +69,22 @@ export default function LogPage() {
     return true
   })
 
-  const totalOut = filtered.filter((tx) => !['+'].includes(TYPE_LABELS[tx.type]?.sign || '')).reduce((s, tx) => {
-    const sign = TYPE_LABELS[tx.type]?.sign
-    return sign === '+' ? s : s + tx.amount
-  }, 0)
-  const totalIn = filtered.reduce((s, tx) => {
-    const sign = TYPE_LABELS[tx.type]?.sign
-    return sign === '+' ? s + tx.amount : s
-  }, 0)
+  const totalOut = filtered.reduce((s, tx) => TYPE_LABELS[tx.type]?.sign === '-' ? s + tx.amount : s, 0)
+  const totalIn = filtered.reduce((s, tx) => TYPE_LABELS[tx.type]?.sign === '+' ? s + tx.amount : s, 0)
 
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-900 border-b border-gray-800 px-4 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-white font-bold text-lg">📋 交易流水帳</h1>
-          <p className="text-gray-400 text-xs">所有交易記錄</p>
+        <div className="flex items-center gap-3">
+          <ClipboardList className="w-5 h-5 text-gray-300" strokeWidth={1.5} />
+          <div>
+            <h1 className="text-white font-bold text-lg">交易流水帳</h1>
+            <p className="text-gray-400 text-xs">所有交易記錄</p>
+          </div>
         </div>
-        <button onClick={() => router.back()} className="text-sm text-gray-400 hover:text-white transition-colors">← 返回</button>
+        <button onClick={() => router.back()} className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+          <ArrowLeft className="w-4 h-4" /> 返回
+        </button>
       </header>
 
       {/* Summary bar */}
@@ -113,8 +117,8 @@ export default function LogPage() {
         </select>
         {(filterTeam || filterType) && (
           <button onClick={() => { setFilterTeam(''); setFilterType('') }}
-            className="px-3 py-1.5 bg-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-600 flex-shrink-0">
-            清除篩選
+            className="px-3 py-1.5 bg-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-600 flex-shrink-0 flex items-center gap-1">
+            <X className="w-3.5 h-3.5" /> 清除篩選
           </button>
         )}
       </div>
@@ -129,10 +133,9 @@ export default function LogPage() {
           <div className="space-y-2">
             {filtered.map((tx, i) => {
               const typeInfo = TYPE_LABELS[tx.type] || { label: tx.type, color: 'text-gray-400', sign: '-' as const }
-              const isFirst = i === 0
               const prevDate = i > 0 ? new Date(filtered[i - 1].createdAt).toLocaleDateString('zh-TW') : null
               const thisDate = new Date(tx.createdAt).toLocaleDateString('zh-TW')
-              const showDateSep = isFirst || thisDate !== prevDate
+              const showDateSep = i === 0 || thisDate !== prevDate
 
               return (
                 <div key={tx.id}>
@@ -145,7 +148,9 @@ export default function LogPage() {
                   )}
                   <div className="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3 flex items-center gap-3">
                     {/* Master icon */}
-                    <div className="text-xl flex-shrink-0">{MASTER_ICONS[tx.masterType] || '⚙️'}</div>
+                    <div className="text-gray-400 flex-shrink-0">
+                      <MasterTypeIcon type={tx.masterType} />
+                    </div>
 
                     {/* Team color dot */}
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: tx.team.color }} />

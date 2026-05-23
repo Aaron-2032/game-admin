@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import {
+  Home, Landmark, ShoppingCart, Banknote, TrendingUp, TrendingDown,
+  Settings, ClipboardList, CheckCircle2, XCircle, ArrowRight, Loader2,
+  ArrowDownToLine, ArrowUpToLine,
+} from 'lucide-react'
 
 type Zone = {
   id: string
@@ -35,12 +40,12 @@ type Transaction = {
   master: { displayName: string }
 }
 
-const MASTER_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-  realestate: { label: '房地產關主', icon: '🏠', color: 'blue' },
-  bank: { label: '銀行關主', icon: '🏦', color: 'green' },
-  market: { label: '市場關主', icon: '🛒', color: 'amber' },
-  loan: { label: '高利貸關主', icon: '💰', color: 'yellow' },
-  indexfund: { label: '房價指數基金關主', icon: '📈', color: 'purple' },
+const MASTER_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  realestate: { label: '房地產關主', icon: <Home className="w-6 h-6" strokeWidth={1.5} />, color: 'blue' },
+  bank: { label: '銀行關主', icon: <Landmark className="w-6 h-6" strokeWidth={1.5} />, color: 'green' },
+  market: { label: '市場關主', icon: <ShoppingCart className="w-6 h-6" strokeWidth={1.5} />, color: 'amber' },
+  loan: { label: '高利貸關主', icon: <Banknote className="w-6 h-6" strokeWidth={1.5} />, color: 'yellow' },
+  indexfund: { label: '房價指數基金關主', icon: <TrendingUp className="w-6 h-6" strokeWidth={1.5} />, color: 'purple' },
 }
 
 const TYPE_OPTIONS = [
@@ -117,26 +122,28 @@ export default function MasterPage() {
     <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{info.icon}</span>
+          <span className="text-gray-300">{info.icon}</span>
           <div>
             <h1 className="text-white font-bold text-lg">{info.label}操作台</h1>
             <p className="text-gray-400 text-xs">{user?.displayName}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <a href="/log" className="text-xs text-gray-400 hover:text-blue-400 transition-colors">流水帳</a>
+          <a href="/log" className="text-xs text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-1">
+            <ClipboardList className="w-3.5 h-3.5" />流水帳
+          </a>
           <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">登出</button>
         </div>
       </header>
 
       {successMsg && (
-        <div className="mx-6 mt-4 text-green-400 bg-green-900/30 border border-green-800 rounded-xl px-4 py-3 text-sm text-center">
-          ✓ {successMsg}
+        <div className="mx-6 mt-4 text-green-400 bg-green-900/30 border border-green-800 rounded-xl px-4 py-3 text-sm text-center flex items-center justify-center gap-2">
+          <CheckCircle2 className="w-4 h-4" /> {successMsg}
         </div>
       )}
       {errorMsg && (
-        <div className="mx-6 mt-4 text-red-400 bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-sm text-center">
-          ✗ {errorMsg}
+        <div className="mx-6 mt-4 text-red-400 bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-sm text-center flex items-center justify-center gap-2">
+          <XCircle className="w-4 h-4" /> {errorMsg}
         </div>
       )}
 
@@ -283,17 +290,19 @@ function LoanPanel({ teams, transactions, onSubmit }: {
     <div className="grid md:grid-cols-2 gap-6">
       <div className="space-y-4">
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-          <h2 className="font-semibold text-white mb-4">💰 放款 / 收款</h2>
+          <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <Banknote className="w-5 h-5 text-yellow-400" strokeWidth={1.5} /> 放款 / 收款
+          </h2>
 
           {/* Action toggle */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <button onClick={() => setAction('loan')}
-              className={`py-3 rounded-lg font-semibold text-sm transition-colors ${action === 'loan' ? 'bg-yellow-500 text-black' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              💸 放款
+              className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${action === 'loan' ? 'bg-yellow-500 text-black' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <ArrowDownToLine className="w-4 h-4" /> 放款
             </button>
             <button onClick={() => setAction('repayment')}
-              className={`py-3 rounded-lg font-semibold text-sm transition-colors ${action === 'repayment' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              ✅ 收款
+              className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${action === 'repayment' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <ArrowUpToLine className="w-4 h-4" /> 收款
             </button>
           </div>
 
@@ -327,10 +336,10 @@ function LoanPanel({ teams, transactions, onSubmit }: {
             </div>
 
             <button type="submit" disabled={submitting || !teamId}
-              className={`w-full py-3 font-semibold rounded-lg transition-colors disabled:opacity-50 ${
+              className={`w-full py-3 font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
                 action === 'loan' ? 'bg-yellow-500 hover:bg-yellow-400 text-black' : 'bg-green-600 hover:bg-green-500 text-white'
               }`}>
-              {submitting ? '處理中...' : action === 'loan' ? '確認放款' : '確認收款'}
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />處理中...</> : action === 'loan' ? '確認放款' : '確認收款'}
             </button>
           </form>
         </div>
@@ -420,7 +429,9 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
     <div className="grid md:grid-cols-2 gap-6">
       <div className="space-y-4">
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-          <h2 className="font-semibold text-white mb-4">📈 房價指數基金操作</h2>
+          <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-purple-400" strokeWidth={1.5} /> 房價指數基金操作
+          </h2>
 
           {/* Phase toggle */}
           <div className="grid grid-cols-2 gap-2 mb-4">
@@ -437,12 +448,12 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
           {/* Direction toggle */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <button onClick={() => setDirection('long')}
-              className={`py-3 rounded-lg font-semibold text-sm transition-colors ${direction === 'long' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              📈 做多 (Long)
+              className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${direction === 'long' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <TrendingUp className="w-4 h-4" /> 做多
             </button>
             <button onClick={() => setDirection('short')}
-              className={`py-3 rounded-lg font-semibold text-sm transition-colors ${direction === 'short' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              📉 做空 (Short)
+              className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${direction === 'short' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              <TrendingDown className="w-4 h-4" /> 做空
             </button>
           </div>
 
@@ -450,12 +461,12 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
           {phase === 'settle' && (
             <div className="grid grid-cols-2 gap-2 mb-4">
               <button onClick={() => setSettleResult('profit')}
-                className={`py-2.5 rounded-lg font-semibold text-sm transition-colors ${settleResult === 'profit' ? 'bg-green-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                ✅ 獲利
+                className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${settleResult === 'profit' ? 'bg-green-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                <CheckCircle2 className="w-4 h-4" /> 獲利
               </button>
               <button onClick={() => setSettleResult('loss')}
-                className={`py-2.5 rounded-lg font-semibold text-sm transition-colors ${settleResult === 'loss' ? 'bg-red-800 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                ❌ 虧損
+                className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${settleResult === 'loss' ? 'bg-red-800 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                <XCircle className="w-4 h-4" /> 虧損
               </button>
             </div>
           )}
@@ -492,10 +503,12 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
             </div>
 
             <button type="submit" disabled={submitting || !teamId}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors">
-              {submitting ? '處理中...' : phase === 'open'
-                ? `確認${direction === 'long' ? '做多' : '做空'}`
-                : `確認結算（${settleResult === 'profit' ? '獲利' : '虧損'}）`}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
+              {submitting
+                ? <><Loader2 className="w-4 h-4 animate-spin" />處理中...</>
+                : phase === 'open'
+                  ? <>{direction === 'long' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}確認{direction === 'long' ? '做多' : '做空'}</>
+                  : <>{settleResult === 'profit' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}確認結算（{settleResult === 'profit' ? '獲利' : '虧損'}）</>}
             </button>
           </form>
         </div>
@@ -521,13 +534,15 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {netLong > 0 && (
-                      <div className="bg-green-900/30 rounded px-2 py-1">
-                        <span className="text-green-400">📈 做多：${netLong.toLocaleString()}</span>
+                      <div className="bg-green-900/30 rounded px-2 py-1 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3 text-green-400" />
+                        <span className="text-green-400">做多：${netLong.toLocaleString()}</span>
                       </div>
                     )}
                     {netShort > 0 && (
-                      <div className="bg-red-900/30 rounded px-2 py-1">
-                        <span className="text-red-400">📉 做空：${netShort.toLocaleString()}</span>
+                      <div className="bg-red-900/30 rounded px-2 py-1 flex items-center gap-1">
+                        <TrendingDown className="w-3 h-3 text-red-400" />
+                        <span className="text-red-400">做空：${netShort.toLocaleString()}</span>
                       </div>
                     )}
                   </div>
@@ -575,7 +590,7 @@ function TransactionList({ transactions }: { transactions: Transaction[] }) {
     <div className="bg-gray-900 rounded-xl border border-gray-800">
       <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
         <h2 className="font-semibold text-white">我的交易記錄</h2>
-        <a href="/log" className="text-xs text-blue-400 hover:text-blue-300">查看全部 →</a>
+        <a href="/log" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-0.5">查看全部 <ArrowRight className="w-3 h-3" /></a>
       </div>
       <div className="divide-y divide-gray-800 max-h-[500px] overflow-y-auto">
         {transactions.length === 0 && (
