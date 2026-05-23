@@ -48,7 +48,6 @@ export async function getSession(): Promise<UserPayload | null> {
 export const MASTER_LABELS: Record<string, string> = {
   realestate: '房地產',
   bank: '銀行',
-  market: '市場',
   loan: '高利貸',
   indexfund: '房價指數基金',
 }

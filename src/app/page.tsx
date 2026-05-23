@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Map, Settings, Target, Users, Home, Landmark, ShoppingCart, Banknote, TrendingUp, Loader2 } from 'lucide-react'
+import { Map, Settings, Target, Users, Home, Landmark, Banknote, TrendingUp, Loader2 } from 'lucide-react'
 
 type UserCard = {
   id: string
@@ -18,7 +18,6 @@ function MasterIcon({ type, className }: { type: string; className?: string }) {
   const cls = className || 'w-8 h-8'
   if (type === 'realestate') return <Home className={cls} />
   if (type === 'bank') return <Landmark className={cls} />
-  if (type === 'market') return <ShoppingCart className={cls} />
   if (type === 'loan') return <Banknote className={cls} />
   if (type === 'indexfund') return <TrendingUp className={cls} />
   return <Target className={cls} />

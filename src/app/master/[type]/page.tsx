@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
-  Home, Landmark, ShoppingCart, Banknote, TrendingUp, TrendingDown,
+  Home, Landmark, Banknote, TrendingUp, TrendingDown,
   Settings, ClipboardList, CheckCircle2, XCircle, ArrowRight, Loader2,
   ArrowDownToLine, ArrowUpToLine,
 } from 'lucide-react'
@@ -43,17 +43,9 @@ type Transaction = {
 const MASTER_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   realestate: { label: '房地產關主', icon: <Home className="w-6 h-6" strokeWidth={1.5} />, color: 'blue' },
   bank: { label: '銀行關主', icon: <Landmark className="w-6 h-6" strokeWidth={1.5} />, color: 'green' },
-  market: { label: '市場關主', icon: <ShoppingCart className="w-6 h-6" strokeWidth={1.5} />, color: 'amber' },
   loan: { label: '高利貸關主', icon: <Banknote className="w-6 h-6" strokeWidth={1.5} />, color: 'yellow' },
   indexfund: { label: '房價指數基金關主', icon: <TrendingUp className="w-6 h-6" strokeWidth={1.5} />, color: 'purple' },
 }
-
-const TYPE_OPTIONS = [
-  { value: 'purchase', label: '購買' },
-  { value: 'sale', label: '出售' },
-  { value: 'fee', label: '費用收取' },
-  { value: 'income', label: '給予收入' },
-]
 
 const TYPE_LABELS: Record<string, string> = {
   purchase: '購買', sale: '出售', fee: '費用', income: '收入',
@@ -168,6 +160,13 @@ export default function MasterPage() {
 
 // ── Generic Panel (realestate / bank / market) ─────────────────────────────
 
+const TYPE_BTNS = [
+  { value: 'purchase', label: '購買',    active: 'bg-red-600 text-white' },
+  { value: 'sale',     label: '出售',    active: 'bg-green-600 text-white' },
+  { value: 'fee',      label: '費用',    active: 'bg-orange-500 text-white' },
+  { value: 'income',   label: '收入',    active: 'bg-blue-600 text-white' },
+]
+
 function GenericPanel({
   masterType, zones, teams, transactions, onSubmit,
 }: {
@@ -177,73 +176,115 @@ function GenericPanel({
   transactions: Transaction[]
   onSubmit: (p: { teamId: string; zoneId?: string | null; type: string; amount: number; note?: string | null }) => Promise<boolean>
 }) {
-  const [formTeamId, setFormTeamId] = useState('')
-  const [formZoneId, setFormZoneId] = useState('')
   const [formType, setFormType] = useState('purchase')
-  const [formAmount, setFormAmount] = useState('')
-  const [formNote, setFormNote] = useState('')
+  const [teamId, setTeamId] = useState('')
+  const [zoneId, setZoneId] = useState('')
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  const needsZone = formType === 'purchase' || formType === 'sale'
   const availableZones = masterType === 'realestate' ? zones.filter((z) => z.type === 'realestate') : zones
-  const selectedTeam = teams.find((t) => t.id === formTeamId)
+  const selectedTeam = teams.find((t) => t.id === teamId)
+  const selectedZone = zones.find((z) => z.id === zoneId)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!formTeamId || !formAmount) return
+  function pickZone(z: Zone) {
+    const next = zoneId === z.id ? '' : z.id
+    setZoneId(next)
+    if (next) setAmount(z.basePrice.toString())
+  }
+
+  async function handleSubmit() {
+    if (!teamId || !amount) return
     setSubmitting(true)
-    const ok = await onSubmit({ teamId: formTeamId, zoneId: formZoneId || null, type: formType, amount: Number(formAmount), note: formNote || null })
-    if (ok) { setFormZoneId(''); setFormAmount(''); setFormNote('') }
+    const ok = await onSubmit({ teamId, zoneId: zoneId || null, type: formType, amount: Number(amount), note: note || null })
+    if (ok) { setZoneId(''); setAmount(''); setNote('') }
     setSubmitting(false)
   }
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <div className="space-y-6">
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-          <h2 className="font-semibold text-white mb-4">新增交易</h2>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">選擇小隊 *</label>
-              <select value={formTeamId} onChange={(e) => setFormTeamId(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500" required>
-                <option value="">-- 選擇小隊 --</option>
-                {teams.map((t) => <option key={t.id} value={t.id}>{t.name} (${t.budget.toLocaleString()})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">選擇區域（選填）</label>
-              <select value={formZoneId} onChange={(e) => { setFormZoneId(e.target.value); const z = zones.find((z) => z.id === e.target.value); if (z) setFormAmount(z.basePrice.toString()) }}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
-                <option value="">-- 無特定區域 --</option>
-                {availableZones.map((z) => (
-                  <option key={z.id} value={z.id}>[{z.code}] {z.name} - ${z.basePrice.toLocaleString()}{z.ownedByTeam ? ` (${z.ownedByTeam.name})` : ' (空地)'}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">交易類型 *</label>
-              <select value={formType} onChange={(e) => setFormType(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
-                {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">金額 *</label>
-              <input type="number" value={formAmount} onChange={(e) => setFormAmount(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                placeholder="輸入金額" min="1" required />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">備註（選填）</label>
-              <input type="text" value={formNote} onChange={(e) => setFormNote(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                placeholder="備註說明" />
-            </div>
-            <button type="submit" disabled={submitting}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-medium rounded-lg transition-colors">
-              {submitting ? '提交中...' : '確認交易'}
+      <div className="space-y-3">
+
+        {/* Transaction type */}
+        <div className="grid grid-cols-4 gap-2">
+          {TYPE_BTNS.map(({ value, label, active }) => (
+            <button key={value}
+              onClick={() => { setFormType(value); if (!['purchase', 'sale'].includes(value)) setZoneId('') }}
+              className={`py-3 rounded-xl font-bold text-sm transition-colors ${formType === value ? active : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+              {label}
             </button>
-          </form>
+          ))}
+        </div>
+
+        {/* Team selection */}
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+          <p className="text-xs text-gray-400 mb-2.5 font-medium">選擇小隊</p>
+          <div className="grid grid-cols-3 gap-2">
+            {teams.map((t) => (
+              <button key={t.id} onClick={() => setTeamId((prev) => prev === t.id ? '' : t.id)}
+                className="px-2 py-2.5 rounded-lg text-left transition-all"
+                style={teamId === t.id
+                  ? { backgroundColor: `${t.color}22`, border: `2px solid ${t.color}` }
+                  : { backgroundColor: '#1f2937', border: '2px solid transparent' }}>
+                <div className="text-xs font-semibold" style={{ color: teamId === t.id ? t.color : '#d1d5db' }}>{t.name}</div>
+                <div className="text-xs text-gray-500">${t.budget.toLocaleString()}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Zone grid */}
+        {needsZone && (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <p className="text-xs text-gray-400 mb-2.5 font-medium">
+              選擇地區 <span className="text-gray-600">· 點選自動填入底價</span>
+            </p>
+            <div className="grid grid-cols-3 gap-1.5 max-h-60 overflow-y-auto pr-0.5">
+              {availableZones.map((z) => {
+                const shortName = z.name.replace(/^.+[市縣]/, '')
+                const isSelected = zoneId === z.id
+                return (
+                  <button key={z.id} onClick={() => pickZone(z)}
+                    className={`p-2 rounded-lg text-left transition-all ${isSelected ? 'ring-2 ring-blue-500' : 'hover:bg-gray-700'}`}
+                    style={{ backgroundColor: isSelected ? '#1e3a5f' : z.ownedByTeam ? `${z.ownedByTeam.color}18` : '#1f2937' }}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="font-mono text-xs font-bold text-gray-300">{z.code}</span>
+                      {z.ownedByTeam && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: z.ownedByTeam.color }} />}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate">{shortName}</div>
+                    <div className="text-xs text-gray-500">${z.basePrice.toLocaleString()}</div>
+                  </button>
+                )
+              })}
+            </div>
+            {selectedZone && (
+              <div className="mt-2 text-xs text-blue-400 bg-blue-950/50 rounded-lg px-3 py-1.5">
+                [{selectedZone.code}] {selectedZone.name}
+                {selectedZone.ownedByTeam ? ` · 持有：${selectedZone.ownedByTeam.name}` : ' · 空地'}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Amount + note + submit */}
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3">
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">金額</label>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-blue-500"
+              placeholder="0" min="1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">備註（選填）</label>
+            <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+              placeholder="備註說明" />
+          </div>
+          <button onClick={handleSubmit} disabled={submitting || !teamId || !amount}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+            {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />處理中...</> : '確認交易'}
+          </button>
         </div>
 
         {selectedTeam && <TeamStatusCard team={selectedTeam} />}
