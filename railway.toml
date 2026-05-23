@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run db:generate && npm run build"
+buildCommand = "npm run db:generate && rm -rf .next && npm run build"
 
 [build.nixpacks]
 providers = ["node"]
