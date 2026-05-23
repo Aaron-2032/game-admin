@@ -7,5 +7,4 @@ providers = ["node"]
 
 [deploy]
 startCommand = "npx prisma db push && npm run start"
-healthcheckPath = "/api/health"
 restartPolicyType = "on_failure"
