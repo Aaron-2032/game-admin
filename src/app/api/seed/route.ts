@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
+// v2: loan + indexfund masters
 
 const TEAMS = [
   { name: '第一小隊', color: '#EF4444', code: 'T1' },
