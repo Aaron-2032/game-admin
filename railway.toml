@@ -1,11 +1,11 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run db:generate && npm run db:push && npm run build"
+buildCommand = "npm run db:generate && npm run build"
 
 [build.nixpacks]
 providers = ["node"]
 
 [deploy]
-startCommand = "npm run db:push && npm run start"
+startCommand = "npx prisma db push && npm run start"
 healthcheckPath = "/api/health"
 restartPolicyType = "on_failure"
