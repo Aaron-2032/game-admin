@@ -2,10 +2,10 @@
 builder = "nixpacks"
 buildCommand = "npm run db:generate && npm run build"
 
+[build.nixpacks]
+providers = ["node"]
+
 [deploy]
 startCommand = "npm run start"
 healthcheckPath = "/api/auth/me"
 restartPolicyType = "on_failure"
-
-[[services]]
-name = "game-admin"
