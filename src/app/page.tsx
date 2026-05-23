@@ -1,98 +1,207 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+
+type UserCard = {
+  id: string
+  username: string
+  displayName: string
+  role: string
+  masterType: string | null
+  teamId: string | null
+  team: { name: string; color: string; code: string } | null
+}
+
+const MASTER_ICONS: Record<string, string> = {
+  realestate: '🏠',
+  bank: '🏦',
+  market: '🛒',
+}
+
+const TEAM_ICONS = ['🔴', '🔵', '🟢', '🟡', '🟣', '🩷']
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [users, setUsers] = useState<UserCard[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selecting, setSelecting] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
+  useEffect(() => {
+    fetch('/api/users')
+      .then((r) => r.json())
+      .then((data) => {
+        setUsers(data)
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('無法載入身分列表，請確認資料庫已初始化')
+        setLoading(false)
+      })
+  }, [])
+
+  async function handleSelect(username: string) {
+    setSelecting(username)
     setError('')
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || '登入失敗')
-        return
-      }
+      if (!res.ok) { setError(data.error || '登入失敗'); setSelecting(null); return }
       if (data.role === 'admin') router.push('/admin')
       else if (data.role === 'master') router.push(`/master/${data.masterType}`)
       else router.push('/map')
     } catch {
       setError('網路錯誤，請稍後再試')
-    } finally {
-      setLoading(false)
+      setSelecting(null)
     }
   }
 
+  const admins = users.filter((u) => u.role === 'admin')
+  const masters = users.filter((u) => u.role === 'master')
+  const assistants = users.filter((u) => u.role === 'assistant')
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🗺️</div>
-          <h1 className="text-2xl font-bold text-white">大地遊戲管理系統</h1>
-          <p className="text-gray-400 text-sm mt-1">請輸入帳號密碼登入</p>
+    <div className="min-h-screen bg-gray-950 px-4 py-10">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-10">
+          <div className="text-6xl mb-3">🗺️</div>
+          <h1 className="text-3xl font-bold text-white">大地遊戲管理系統</h1>
+          <p className="text-gray-400 mt-2">請選擇您的身分</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-gray-900 rounded-2xl p-6 space-y-4 border border-gray-800">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">帳號</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              placeholder="輸入帳號"
-              required
-              autoFocus
-            />
+        {error && (
+          <div className="mb-6 text-red-400 bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-center text-sm">
+            {error}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">密碼</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              placeholder="輸入密碼"
-              required
-            />
-          </div>
-          {error && (
-            <div className="text-red-400 text-sm bg-red-900/30 border border-red-800 rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-medium rounded-lg transition-colors"
-          >
-            {loading ? '登入中...' : '登入'}
-          </button>
-        </form>
+        )}
 
-        <div className="mt-6 bg-gray-900 rounded-2xl p-4 border border-gray-800">
-          <p className="text-xs font-medium text-gray-400 mb-2">DEMO 帳號</p>
-          <div className="space-y-1 text-xs text-gray-500">
-            <div className="flex justify-between"><span>總控</span><span className="font-mono">admin / admin888</span></div>
-            <div className="flex justify-between"><span>房地產關主</span><span className="font-mono">master_re / demo123</span></div>
-            <div className="flex justify-between"><span>銀行關主</span><span className="font-mono">master_bank / demo123</span></div>
-            <div className="flex justify-between"><span>市場關主</span><span className="font-mono">master_market / demo123</span></div>
-            <div className="flex justify-between"><span>第一小隊隊輔</span><span className="font-mono">team1 / demo123</span></div>
+        {loading ? (
+          <div className="text-center text-gray-500 py-20">載入中...</div>
+        ) : users.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-gray-400 mb-4">尚未初始化資料</p>
+            <button
+              onClick={async () => {
+                setLoading(true)
+                await fetch('/api/seed', { method: 'POST' })
+                const r = await fetch('/api/users')
+                setUsers(await r.json())
+                setLoading(false)
+              }}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm"
+            >
+              初始化 DEMO 資料
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-8">
+            {admins.length > 0 && (
+              <Section title="總控管理員" icon="⚙️">
+                {admins.map((u) => (
+                  <IdentityCard
+                    key={u.id}
+                    icon="⚙️"
+                    label={u.displayName}
+                    sub="可查看所有金流"
+                    color="#6B7280"
+                    loading={selecting === u.username}
+                    onClick={() => handleSelect(u.username)}
+                  />
+                ))}
+              </Section>
+            )}
+
+            {masters.length > 0 && (
+              <Section title="關主" icon="🎯">
+                {masters.map((u) => (
+                  <IdentityCard
+                    key={u.id}
+                    icon={MASTER_ICONS[u.masterType || ''] || '🎯'}
+                    label={u.displayName}
+                    sub={`${u.masterType} 關主`}
+                    color="#3B82F6"
+                    loading={selecting === u.username}
+                    onClick={() => handleSelect(u.username)}
+                  />
+                ))}
+              </Section>
+            )}
+
+            {assistants.length > 0 && (
+              <Section title="隊輔" icon="👥">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {assistants.map((u, i) => (
+                    <IdentityCard
+                      key={u.id}
+                      icon={TEAM_ICONS[i % TEAM_ICONS.length]}
+                      label={u.team?.name || u.displayName}
+                      sub="隊輔（唯讀地圖）"
+                      color={u.team?.color || '#6B7280'}
+                      loading={selecting === u.username}
+                      onClick={() => handleSelect(u.username)}
+                      compact
+                    />
+                  ))}
+                </div>
+              </Section>
+            )}
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span>{icon}</span>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">{title}</h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{children}</div>
+    </div>
+  )
+}
+
+function IdentityCard({
+  icon, label, sub, color, loading, onClick, compact = false,
+}: {
+  icon: string; label: string; sub: string; color: string
+  loading: boolean; onClick: () => void; compact?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!!loading}
+      className={`w-full text-left rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${
+        compact ? 'p-3' : 'p-4'
+      }`}
+      style={{
+        borderColor: loading ? color : 'transparent',
+        backgroundColor: `${color}18`,
+        boxShadow: loading ? `0 0 0 2px ${color}` : undefined,
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = color }}
+      onMouseLeave={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent' }}
+    >
+      <div className={`flex items-center gap-3 ${compact ? '' : 'mb-1'}`}>
+        <span className={compact ? 'text-2xl' : 'text-3xl'}>{loading ? '⏳' : icon}</span>
+        <div>
+          <div className="font-semibold text-white text-sm">{label}</div>
+          {!compact && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+        </div>
+      </div>
+      {!compact && (
+        <div className="mt-2 text-xs font-medium" style={{ color }}>
+          {loading ? '進入中...' : '點擊進入 →'}
+        </div>
+      )}
+    </button>
   )
 }

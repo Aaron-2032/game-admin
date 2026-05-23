@@ -1,22 +1,17 @@
 import { prisma } from '@/lib/prisma'
-import { hashPassword, signToken } from '@/lib/auth'
+import { signToken } from '@/lib/auth'
 import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
-  const { username, password } = await request.json()
+  const { username } = await request.json()
 
-  if (!username || !password) {
-    return Response.json({ error: '請輸入帳號密碼' }, { status: 400 })
+  if (!username) {
+    return Response.json({ error: '請選擇身分' }, { status: 400 })
   }
 
   const user = await prisma.user.findUnique({ where: { username }, include: { team: true } })
   if (!user) {
-    return Response.json({ error: '帳號或密碼錯誤' }, { status: 401 })
-  }
-
-  const hash = await hashPassword(password)
-  if (hash !== user.passwordHash) {
-    return Response.json({ error: '帳號或密碼錯誤' }, { status: 401 })
+    return Response.json({ error: '身分不存在' }, { status: 401 })
   }
 
   const token = await signToken({
