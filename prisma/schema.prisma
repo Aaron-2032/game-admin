@@ -49,6 +49,15 @@ model Setting {
   value String
 }
 
+model ColumnConfig {
+  column   String @id  // "A"-"F"
+  price1   Int
+  price2   Int
+  price3   Int
+  price4   Int
+  rentRate Int
+}
+
 model Transaction {
   id         String   @id @default(cuid())
   teamId     String

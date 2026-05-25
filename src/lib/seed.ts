@@ -20,7 +20,10 @@ const ZONE_NAMES = [
 ]
 
 const ZONE_TYPES = ['realestate', 'realestate', 'realestate', 'resource', 'special']
-const PRICES = [300, 400, 500, 600, 800, 1000, 1200, 1500]
+
+// One price per column (A–F); all zones in the same column share this price
+const COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F']
+const COLUMN_PRICES = [300, 400, 500, 600, 800, 1000]
 
 export async function runSeed() {
   await prisma.$transaction([
@@ -29,6 +32,7 @@ export async function runSeed() {
     prisma.user.deleteMany(),
     prisma.team.deleteMany(),
     prisma.setting.deleteMany(),
+    prisma.columnConfig.deleteMany(),
   ])
 
   const pwHash = await hashPassword('demo123')
@@ -38,29 +42,39 @@ export async function runSeed() {
     TEAMS.map((t) => prisma.team.create({ data: { ...t, budget: 10000 } }))
   )
 
+  // Zones: all zones in column X share COLUMN_PRICES[x]
   for (let y = 0; y < 6; y++) {
     for (let x = 0; x < 6; x++) {
       const idx = y * 6 + x
+      const price = COLUMN_PRICES[x]
       await prisma.zone.create({
         data: {
           name: ZONE_NAMES[idx],
-          code: `${String.fromCharCode(65 + x)}${y + 1}`,
+          code: `${COLUMNS[x]}${y + 1}`,
           gridX: x,
           gridY: y,
           type: ZONE_TYPES[idx % ZONE_TYPES.length],
-          basePrice: PRICES[idx % PRICES.length],
-          currentPrice: PRICES[idx % PRICES.length],
+          basePrice: price,
+          currentPrice: price,
         },
       })
     }
   }
 
-  await prisma.setting.createMany({
-    data: [
-      { key: 'month', value: '1' },
-      { key: 'rentRate', value: '10' },
-    ],
+  // Column configs: admin sets prices per month before the game starts
+  // Defaults: all 4 months same as base price (admin customises before game)
+  await prisma.columnConfig.createMany({
+    data: COLUMNS.map((col, i) => ({
+      column: col,
+      price1: COLUMN_PRICES[i],
+      price2: COLUMN_PRICES[i],
+      price3: COLUMN_PRICES[i],
+      price4: COLUMN_PRICES[i],
+      rentRate: 10,
+    })),
   })
+
+  await prisma.setting.create({ data: { key: 'month', value: '1' } })
 
   await prisma.user.create({
     data: { username: 'admin', displayName: '總控管理員', passwordHash: adminHash, role: 'admin' },

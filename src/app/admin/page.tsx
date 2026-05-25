@@ -4,45 +4,36 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Map, ClipboardList, Banknote, Users, Building2, Home, Landmark,
-  TrendingUp, Settings, Calendar, ChevronDown, Loader2,
+  TrendingUp, Settings, Calendar, ChevronDown, Loader2, LayoutGrid,
 } from 'lucide-react'
 
 type Transaction = {
-  id: string
-  amount: number
-  type: string
-  masterType: string
-  note: string | null
-  createdAt: string
+  id: string; amount: number; type: string; masterType: string
+  note: string | null; createdAt: string
   team: { name: string; color: string; code: string }
   zone: { name: string; code: string } | null
   master: { displayName: string }
 }
 
 type Team = {
-  id: string
-  name: string
-  color: string
-  code: string
-  budget: number
+  id: string; name: string; color: string; code: string; budget: number
   _count: { ownedZones: number; transactions: number }
 }
 
 type Zone = {
-  id: string
-  name: string
-  code: string
-  type: string
-  currentPrice: number
-  ownedByTeamId: string | null
+  id: string; name: string; code: string; type: string
+  currentPrice: number; ownedByTeamId: string | null
   ownedByTeam: { name: string; color: string } | null
 }
 
-type GameState = { month: number; rentRate: number }
+type GameState = { month: number }
+
+type ColumnConfig = {
+  column: string; price1: number; price2: number; price3: number; price4: number; rentRate: number
+}
 
 const MASTER_LABELS: Record<string, string> = {
-  realestate: '房地產', bank: '銀行', loan: '高利貸',
-  indexfund: '指數基金', admin: '管理',
+  realestate: '房地產', bank: '銀行', loan: '高利貸', indexfund: '指數基金', admin: '管理',
 }
 
 function MasterTypeIcon({ type }: { type: string }) {
@@ -66,21 +57,23 @@ export default function AdminPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [zones, setZones] = useState<Zone[]>([])
-  const [gameState, setGameState] = useState<GameState>({ month: 1, rentRate: 10 })
+  const [gameState, setGameState] = useState<GameState>({ month: 1 })
+  const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>([])
   const [lastFetch, setLastFetch] = useState<string>(new Date(0).toISOString())
   const [resetConfirm, setResetConfirm] = useState(false)
   const [resetting, setResetting] = useState(false)
 
   const fetchData = useCallback(async (since?: string) => {
-    const [txRes, teamRes, zoneRes, stateRes] = await Promise.all([
+    const [txRes, teamRes, zoneRes, stateRes, colRes] = await Promise.all([
       fetch(`/api/transactions${since ? `?since=${since}` : ''}`),
       fetch('/api/teams'),
       fetch('/api/zones'),
       fetch('/api/game/state'),
+      fetch('/api/game/column-config'),
     ])
     if (txRes.status === 401) { router.push('/'); return }
-    const [txData, teamData, zoneData, stateData] = await Promise.all([
-      txRes.json(), teamRes.json(), zoneRes.json(), stateRes.json(),
+    const [txData, teamData, zoneData, stateData, colData] = await Promise.all([
+      txRes.json(), teamRes.json(), zoneRes.json(), stateRes.json(), colRes.json(),
     ])
     if (since) {
       setTransactions((prev) => [...txData, ...prev].slice(0, 100))
@@ -90,6 +83,7 @@ export default function AdminPage() {
     setTeams(teamData)
     setZones(zoneData)
     setGameState(stateData)
+    setColumnConfigs(colData)
     setLastFetch(new Date().toISOString())
   }, [router])
 
@@ -143,12 +137,15 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="p-6 space-y-4 max-w-7xl mx-auto">
+
+        <ColumnConfigPanel configs={columnConfigs} onSaved={() => fetchData()} />
 
         <NextMonthPanel
           gameState={gameState}
           zones={zones}
           teams={teams}
+          columnConfigs={columnConfigs}
           onAdvance={() => fetchData()}
         />
 
@@ -194,9 +191,7 @@ export default function AdminPage() {
             {transactions.length === 0 && (
               <div className="text-center py-12 text-gray-500">尚無交易記錄</div>
             )}
-            {transactions.map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} />
-            ))}
+            {transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)}
           </div>
         </div>
       </div>
@@ -204,68 +199,143 @@ export default function AdminPage() {
   )
 }
 
-// ── Next Month Panel ────────────────────────────────────────────────────────
+// ── Column Config Panel ─────────────────────────────────────────────────────
 
-function NextMonthPanel({ gameState, zones, teams, onAdvance }: {
-  gameState: GameState
-  zones: Zone[]
-  teams: Team[]
-  onAdvance: () => void
-}) {
+function ColumnConfigPanel({ configs, onSaved }: { configs: ColumnConfig[]; onSaved: () => void }) {
   const [expanded, setExpanded] = useState(false)
-  const [rentRate, setRentRate] = useState(gameState.rentRate.toString())
-  const [prices, setPrices] = useState<Record<string, string>>({})
-  const [submitting, setSubmitting] = useState(false)
+  const [draft, setDraft] = useState<ColumnConfig[]>(configs)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
-  const realEstateZones = zones
-    .filter((z) => z.type === 'realestate')
-    .sort((a, b) => a.code.localeCompare(b.code))
+  useEffect(() => { setDraft(configs) }, [configs])
 
-  function getNewPrice(z: Zone) {
-    const v = prices[z.id]
-    return v && !isNaN(parseInt(v)) ? parseInt(v) : z.currentPrice
+  function update(column: string, field: keyof ColumnConfig, raw: string) {
+    const value = parseInt(raw) || 0
+    setDraft((prev) => prev.map((c) => c.column === column ? { ...c, [field]: value } : c))
   }
 
-  const rate = parseInt(rentRate) || 0
+  async function handleSave() {
+    setSaving(true)
+    const res = await fetch('/api/game/column-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    })
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); onSaved() }
+    setSaving(false)
+  }
+
+  return (
+    <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+      <button className="w-full px-5 py-4 flex items-center justify-between" onClick={() => setExpanded(!expanded)}>
+        <div className="flex items-center gap-2">
+          <LayoutGrid className="w-4 h-4 text-gray-400" strokeWidth={1.5} />
+          <span className="text-white font-semibold">月份房價設定</span>
+          <span className="text-xs text-gray-500">· 遊戲開始前設定各區每月房價與租金率</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} strokeWidth={2} />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-gray-800 p-5">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400">
+                  <th className="text-left pb-3 pr-4 font-medium">區域</th>
+                  {[1, 2, 3, 4].map((m) => (
+                    <th key={m} className="text-center pb-3 px-3 font-medium">第{m}月房價</th>
+                  ))}
+                  <th className="text-center pb-3 pl-4 font-medium">月租金率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {draft.map((c) => (
+                  <tr key={c.column} className="border-t border-gray-800/60">
+                    <td className="py-2.5 pr-4">
+                      <span className="font-mono font-bold text-white bg-gray-800 px-2.5 py-1 rounded text-sm">{c.column} 區</span>
+                    </td>
+                    {(['price1', 'price2', 'price3', 'price4'] as const).map((field) => (
+                      <td key={field} className="py-2.5 px-3">
+                        <input
+                          type="number"
+                          value={c[field]}
+                          onChange={(e) => update(c.column, field, e.target.value)}
+                          className="w-24 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm text-center focus:outline-none focus:border-blue-500"
+                          min="0"
+                        />
+                      </td>
+                    ))}
+                    <td className="py-2.5 pl-4">
+                      <div className="flex items-center gap-1.5 justify-center">
+                        <input
+                          type="number"
+                          value={c.rentRate}
+                          onChange={(e) => update(c.column, 'rentRate', e.target.value)}
+                          className="w-16 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm text-center focus:outline-none focus:border-blue-500"
+                          min="0" max="100"
+                        />
+                        <span className="text-gray-500 text-sm">%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={handleSave} disabled={saving}
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-sm rounded-lg transition-colors">
+              {saving ? '儲存中...' : '儲存設定'}
+            </button>
+            {saved && <span className="text-green-400 text-sm">已儲存，房價已同步</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Next Month Panel ────────────────────────────────────────────────────────
+
+function NextMonthPanel({ gameState, zones, teams, columnConfigs, onAdvance }: {
+  gameState: GameState; zones: Zone[]; teams: Team[]
+  columnConfigs: ColumnConfig[]; onAdvance: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  const newMonth = gameState.month + 1
+  const configMap = Object.fromEntries(columnConfigs.map((c) => [c.column, c]))
+
   const incomePreview = teams
     .map((team) => {
-      const owned = realEstateZones.filter((z) => z.ownedByTeamId === team.id)
-      const total = owned.reduce((s, z) => s + Math.floor(getNewPrice(z) * rate / 100), 0)
+      const owned = zones.filter((z) => z.type === 'realestate' && z.ownedByTeamId === team.id)
+      const total = owned.reduce((s, z) => {
+        const config = configMap[z.code.charAt(0)]
+        if (!config) return s
+        const price = (config as Record<string, number>)[`price${newMonth}`] ?? z.currentPrice
+        return s + Math.floor(price * config.rentRate / 100)
+      }, 0)
       return { team, owned, total }
     })
     .filter((p) => p.owned.length > 0)
 
   async function handleAdvance() {
     setSubmitting(true)
-    const priceMap: Record<string, number> = {}
-    for (const [id, val] of Object.entries(prices)) {
-      if (val && !isNaN(parseInt(val))) priceMap[id] = parseInt(val)
-    }
-    const res = await fetch('/api/game/next-month', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prices: priceMap, rentRate: rate }),
-    })
+    const res = await fetch('/api/game/next-month', { method: 'POST' })
     const data = await res.json()
-    if (data.ok) {
-      setExpanded(false)
-      setPrices({})
-      onAdvance()
-    }
+    if (data.ok) { setExpanded(false); onAdvance() }
     setSubmitting(false)
   }
 
   if (gameState.month >= 4) {
     return (
-      <div className="bg-gray-900 rounded-xl border border-yellow-800/50 px-5 py-4 flex items-center justify-between">
+      <div className="bg-gray-900 rounded-xl border border-yellow-800/40 px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Calendar className="w-4 h-4 text-yellow-400" strokeWidth={1.5} />
           <span className="text-white font-semibold">遊戲進度</span>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4].map((m) => (
-              <div key={m} className="w-6 h-1.5 rounded-full bg-yellow-500" />
-            ))}
-          </div>
+          <div className="flex gap-1">{[1, 2, 3, 4].map((m) => <div key={m} className="w-6 h-1.5 rounded-full bg-yellow-500" />)}</div>
         </div>
         <span className="text-yellow-400 font-bold text-sm">第 4 月 · 遊戲結束</span>
       </div>
@@ -287,54 +357,38 @@ function NextMonthPanel({ gameState, zones, teams, onAdvance }: {
         <button onClick={() => setExpanded(!expanded)}
           className="px-4 py-1.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-1.5">
           <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} strokeWidth={2} />
-          進入第 {gameState.month + 1} 月
+          進入第 {newMonth} 月
         </button>
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-800 p-5 space-y-5">
+        <div className="border-t border-gray-800 p-5 space-y-4">
 
-          {/* Rent rate */}
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-400 flex-shrink-0">月租金率</label>
-            <input type="number" value={rentRate} onChange={(e) => setRentRate(e.target.value)}
-              className="w-20 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-              min="0" max="100" />
-            <span className="text-gray-500 text-sm">% · 依各地區當月房價計算</span>
-          </div>
-
-          {/* Zone price inputs */}
+          {/* New prices preview */}
           <div>
-            <p className="text-xs text-gray-400 mb-3">調整地區房價（不填維持原價）</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-0.5">
-              {realEstateZones.map((z) => (
-                <div key={z.id} className="bg-gray-800 rounded-lg p-2.5">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-mono text-xs font-bold text-gray-300">{z.code}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-500 truncate max-w-[60px]">{z.name.replace(/^.+[市縣]/, '')}</span>
-                      {z.ownedByTeam && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: z.ownedByTeam.color }} />}
-                    </div>
+            <p className="text-xs text-gray-400 mb-2">第 {newMonth} 月各區房價</p>
+            <div className="grid grid-cols-6 gap-2">
+              {columnConfigs.map((c) => {
+                const newPrice = (c as Record<string, number>)[`price${newMonth}`]
+                const diff = newPrice - c[`price${gameState.month}` as keyof ColumnConfig] as number
+                return (
+                  <div key={c.column} className="bg-gray-800 rounded-lg p-2 text-center">
+                    <div className="font-mono font-bold text-white text-sm">{c.column}</div>
+                    <div className="text-white font-semibold text-sm">${newPrice.toLocaleString()}</div>
+                    {diff !== 0 && (
+                      <div className={`text-xs ${diff > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {diff > 0 ? '+' : ''}{diff}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500 flex-shrink-0">${z.currentPrice.toLocaleString()}</span>
-                    <span className="text-gray-600 text-xs">→</span>
-                    <input
-                      type="number"
-                      value={prices[z.id] || ''}
-                      onChange={(e) => setPrices((prev) => ({ ...prev, [z.id]: e.target.value }))}
-                      className="w-0 flex-1 min-w-0 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:border-blue-500"
-                      placeholder={z.currentPrice.toString()}
-                    />
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
-          {/* Income preview */}
+          {/* Rent preview */}
           <div>
-            <p className="text-xs text-gray-400 mb-2">租金發放預覽</p>
+            <p className="text-xs text-gray-400 mb-2">自動發放租金預覽</p>
             {incomePreview.length === 0 ? (
               <p className="text-xs text-gray-600">目前無小隊持有房產，不發放租金</p>
             ) : (
@@ -357,7 +411,7 @@ function NextMonthPanel({ gameState, zones, teams, onAdvance }: {
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
             {submitting
               ? <><Loader2 className="w-4 h-4 animate-spin" />處理中...</>
-              : `確認進入第 ${gameState.month + 1} 月`}
+              : `確認進入第 ${newMonth} 月`}
           </button>
         </div>
       )}
@@ -370,10 +424,7 @@ function NextMonthPanel({ gameState, zones, teams, onAdvance }: {
 function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
     <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-      <div className="flex items-center gap-2 mb-1 text-gray-400">
-        {icon}
-        <span className="text-sm">{label}</span>
-      </div>
+      <div className="flex items-center gap-2 mb-1 text-gray-400">{icon}<span className="text-sm">{label}</span></div>
       <div className="text-2xl font-bold text-white">{value}</div>
     </div>
   )
@@ -399,9 +450,7 @@ function TransactionRow({ tx }: { tx: Transaction }) {
         <div className={`font-semibold text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
           {isPositive ? '+' : '-'}${tx.amount.toLocaleString()}
         </div>
-        <div className="text-xs text-gray-500">
-          {new Date(tx.createdAt).toLocaleTimeString('zh-TW')}
-        </div>
+        <div className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleTimeString('zh-TW')}</div>
       </div>
     </div>
   )

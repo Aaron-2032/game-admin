@@ -1,13 +1,11 @@
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 
-export async function POST(req: Request) {
+export async function POST() {
   const session = await getSession()
   if (!session || session.role !== 'admin') {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  const { prices, rentRate } = await req.json()
 
   const monthSetting = await prisma.setting.findUnique({ where: { key: 'month' } })
   const currentMonth = parseInt(monthSetting?.value || '1')
@@ -15,26 +13,34 @@ export async function POST(req: Request) {
     return Response.json({ error: '已是第 4 月，遊戲結束' }, { status: 400 })
   }
 
-  const rate = Number(rentRate) ?? 10
-  const adminUser = await prisma.user.findFirst({ where: { role: 'admin' } })
-  if (!adminUser) return Response.json({ error: '找不到管理員帳號' }, { status: 500 })
+  const newMonth = currentMonth + 1
 
-  // Update zone prices where provided
-  for (const [zoneId, newPrice] of Object.entries(prices || {})) {
-    await prisma.zone.update({
-      where: { id: zoneId },
-      data: { currentPrice: Number(newPrice) },
+  const columnConfigs = await prisma.columnConfig.findMany()
+  const configMap = Object.fromEntries(columnConfigs.map((c) => [c.column, c]))
+
+  const adminUser = await prisma.user.findFirst({ where: { role: 'admin' } })
+  if (!adminUser) return Response.json({ error: '找不到管理員' }, { status: 500 })
+
+  // Update zone currentPrices to new month's configured price
+  for (const [col, config] of Object.entries(configMap)) {
+    const newPrice = (config as Record<string, unknown>)[`price${newMonth}`] as number
+    await prisma.zone.updateMany({
+      where: { code: { startsWith: col } },
+      data: { currentPrice: newPrice },
     })
   }
 
-  // Get all owned real estate zones (after price update)
+  // Auto-generate rent for all owned real estate zones
   const ownedZones = await prisma.zone.findMany({
     where: { type: 'realestate', ownedByTeamId: { not: null } },
   })
 
   let rentCount = 0
   for (const zone of ownedZones) {
-    const rentAmount = Math.floor(zone.currentPrice * rate / 100)
+    const col = zone.code.charAt(0)
+    const config = configMap[col]
+    if (!config) continue
+    const rentAmount = Math.floor(zone.currentPrice * config.rentRate / 100)
     if (rentAmount <= 0) continue
     await prisma.transaction.create({
       data: {
@@ -44,7 +50,7 @@ export async function POST(req: Request) {
         masterType: 'realestate',
         type: 'rent',
         amount: rentAmount,
-        note: `第${currentMonth + 1}月租金`,
+        note: `第${newMonth}月租金`,
       },
     })
     await prisma.team.update({
@@ -54,17 +60,11 @@ export async function POST(req: Request) {
     rentCount++
   }
 
-  // Advance month
   await prisma.setting.upsert({
     where: { key: 'month' },
-    update: { value: (currentMonth + 1).toString() },
-    create: { key: 'month', value: (currentMonth + 1).toString() },
-  })
-  await prisma.setting.upsert({
-    where: { key: 'rentRate' },
-    update: { value: rate.toString() },
-    create: { key: 'rentRate', value: rate.toString() },
+    update: { value: newMonth.toString() },
+    create: { key: 'month', value: newMonth.toString() },
   })
 
-  return Response.json({ ok: true, month: currentMonth + 1, rentCount })
+  return Response.json({ ok: true, month: newMonth, rentCount })
 }
