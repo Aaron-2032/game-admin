@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Map, ClipboardList, Banknote, Users, Building2, Home, Landmark,
+  Map, Home, Landmark,
   TrendingUp, Settings, Calendar, ChevronDown, Loader2, LayoutGrid,
 } from 'lucide-react'
 
@@ -105,8 +105,6 @@ export default function AdminPage() {
     router.push('/')
   }
 
-  const totalSpent = transactions.reduce((sum, t) => sum + t.amount, 0)
-
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
@@ -149,14 +147,7 @@ export default function AdminPage() {
           onAdvance={() => fetchData()}
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="交易總筆數" value={transactions.length.toString()} icon={<ClipboardList className="w-5 h-5" />} />
-          <StatCard label="總金流" value={`$${totalSpent.toLocaleString()}`} icon={<Banknote className="w-5 h-5" />} />
-          <StatCard label="小隊數量" value={teams.length.toString()} icon={<Users className="w-5 h-5" />} />
-          <StatCard label="已購區域" value={teams.reduce((s, t) => s + t._count.ownedZones, 0).toString()} icon={<Building2 className="w-5 h-5" />} />
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
+<div className="grid md:grid-cols-3 gap-4">
           {teams.map((team) => (
             <div key={team.id} className="bg-gray-900 rounded-xl p-4 border border-gray-800">
               <div className="flex items-center gap-2 mb-3">
@@ -419,16 +410,6 @@ function NextMonthPanel({ gameState, zones, teams, columnConfigs, onAdvance }: {
   )
 }
 
-// ── Shared ──────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
-  return (
-    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-      <div className="flex items-center gap-2 mb-1 text-gray-400">{icon}<span className="text-sm">{label}</span></div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-    </div>
-  )
-}
 
 function TransactionRow({ tx }: { tx: Transaction }) {
   const isPositive = INCOME_TYPES.includes(tx.type)
