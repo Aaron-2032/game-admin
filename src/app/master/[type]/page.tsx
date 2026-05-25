@@ -178,7 +178,7 @@ function GenericPanel({
 }) {
   const [formType, setFormType] = useState('purchase')
   const [teamId, setTeamId] = useState('')
-  const [zoneId, setZoneId] = useState('')
+  const [zoneIds, setZoneIds] = useState<string[]>([])
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -186,19 +186,31 @@ function GenericPanel({
   const needsZone = formType === 'purchase' || formType === 'sale'
   const availableZones = masterType === 'realestate' ? zones.filter((z) => z.type === 'realestate') : zones
   const selectedTeam = teams.find((t) => t.id === teamId)
-  const selectedZone = zones.find((z) => z.id === zoneId)
+  const selectedZones = zones.filter((z) => zoneIds.includes(z.id))
+  const zonesTotal = selectedZones.reduce((s, z) => s + z.basePrice, 0)
 
-  function pickZone(z: Zone) {
-    const next = zoneId === z.id ? '' : z.id
-    setZoneId(next)
-    if (next) setAmount(z.basePrice.toString())
+  function toggleZone(z: Zone) {
+    setZoneIds((prev) =>
+      prev.includes(z.id) ? prev.filter((id) => id !== z.id) : [...prev, z.id]
+    )
   }
 
+  const canSubmit = teamId && !submitting && (needsZone ? zoneIds.length > 0 : !!amount)
+
   async function handleSubmit() {
-    if (!teamId || !amount) return
+    if (!canSubmit) return
     setSubmitting(true)
-    const ok = await onSubmit({ teamId, zoneId: zoneId || null, type: formType, amount: Number(amount), note: note || null })
-    if (ok) { setZoneId(''); setAmount(''); setNote('') }
+    if (needsZone && selectedZones.length > 0) {
+      for (const z of selectedZones) {
+        const ok = await onSubmit({ teamId, zoneId: z.id, type: formType, amount: z.basePrice, note: note || null })
+        if (!ok) break
+      }
+      setZoneIds([])
+      setNote('')
+    } else {
+      const ok = await onSubmit({ teamId, zoneId: null, type: formType, amount: Number(amount), note: note || null })
+      if (ok) { setAmount(''); setNote('') }
+    }
     setSubmitting(false)
   }
 
@@ -210,7 +222,7 @@ function GenericPanel({
         <div className="grid grid-cols-4 gap-2">
           {TYPE_BTNS.map(({ value, label, active }) => (
             <button key={value}
-              onClick={() => { setFormType(value); if (!['purchase', 'sale'].includes(value)) setZoneId('') }}
+              onClick={() => { setFormType(value); if (!['purchase', 'sale'].includes(value)) setZoneIds([]) }}
               className={`py-3 rounded-xl font-bold text-sm transition-colors ${formType === value ? active : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
               {label}
             </button>
@@ -234,18 +246,23 @@ function GenericPanel({
           </div>
         </div>
 
-        {/* Zone grid */}
+        {/* Zone grid (multi-select) */}
         {needsZone && (
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-            <p className="text-xs text-gray-400 mb-2.5 font-medium">
-              選擇地區 <span className="text-gray-600">· 點選自動填入底價</span>
-            </p>
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-xs text-gray-400 font-medium">選擇地區（可複選）</p>
+              {zoneIds.length > 0 && (
+                <button onClick={() => setZoneIds([])} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                  清除 {zoneIds.length} 個
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-1.5 max-h-60 overflow-y-auto pr-0.5">
               {availableZones.map((z) => {
                 const shortName = z.name.replace(/^.+[市縣]/, '')
-                const isSelected = zoneId === z.id
+                const isSelected = zoneIds.includes(z.id)
                 return (
-                  <button key={z.id} onClick={() => pickZone(z)}
+                  <button key={z.id} onClick={() => toggleZone(z)}
                     className={`p-2 rounded-lg text-left transition-all ${isSelected ? 'ring-2 ring-blue-500' : 'hover:bg-gray-700'}`}
                     style={{ backgroundColor: isSelected ? '#1e3a5f' : z.ownedByTeam ? `${z.ownedByTeam.color}18` : '#1f2937' }}>
                     <div className="flex items-center justify-between mb-0.5">
@@ -258,32 +275,48 @@ function GenericPanel({
                 )
               })}
             </div>
-            {selectedZone && (
-              <div className="mt-2 text-xs text-blue-400 bg-blue-950/50 rounded-lg px-3 py-1.5">
-                [{selectedZone.code}] {selectedZone.name}
-                {selectedZone.ownedByTeam ? ` · 持有：${selectedZone.ownedByTeam.name}` : ' · 空地'}
+            {selectedZones.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {selectedZones.map((z) => (
+                  <div key={z.id} className="flex items-center justify-between text-xs bg-blue-950/50 rounded-lg px-3 py-1.5">
+                    <span className="text-blue-300">[{z.code}] {z.name}</span>
+                    <span className="text-blue-400 font-semibold">${z.basePrice.toLocaleString()}</span>
+                  </div>
+                ))}
+                {selectedZones.length > 1 && (
+                  <div className="flex items-center justify-between text-xs bg-gray-800 rounded-lg px-3 py-1.5">
+                    <span className="text-gray-400">合計 {selectedZones.length} 筆</span>
+                    <span className="text-white font-bold">${zonesTotal.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Amount + note + submit */}
+        {/* Amount (only for fee/income) + note + submit */}
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3">
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">金額</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-blue-500"
-              placeholder="0" min="1" />
-          </div>
+          {!needsZone && (
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">金額</label>
+              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+                className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:border-blue-500"
+                placeholder="0" min="1" />
+            </div>
+          )}
           <div>
             <label className="text-xs text-gray-400 mb-1 block">備註（選填）</label>
             <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
               placeholder="備註說明" />
           </div>
-          <button onClick={handleSubmit} disabled={submitting || !teamId || !amount}
+          <button onClick={handleSubmit} disabled={!canSubmit}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
-            {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />處理中...</> : '確認交易'}
+            {submitting
+              ? <><Loader2 className="w-4 h-4 animate-spin" />處理中...</>
+              : needsZone && selectedZones.length > 1
+                ? `確認交易（${selectedZones.length} 筆 · $${zonesTotal.toLocaleString()}）`
+                : '確認交易'}
           </button>
         </div>
 
