@@ -30,6 +30,7 @@ export async function POST() {
       prisma.zone.deleteMany(),
       prisma.user.deleteMany(),
       prisma.team.deleteMany(),
+      prisma.setting.deleteMany(),
     ])
 
     const pwHash = await hashPassword('demo123')
@@ -51,11 +52,19 @@ export async function POST() {
             gridY: y,
             type: ZONE_TYPES[idx % ZONE_TYPES.length],
             basePrice: PRICES[idx % PRICES.length],
+            currentPrice: PRICES[idx % PRICES.length],
           },
         })
         zones.push(zone)
       }
     }
+
+    await prisma.setting.createMany({
+      data: [
+        { key: 'month', value: '1' },
+        { key: 'rentRate', value: '10' },
+      ],
+    })
 
     await prisma.user.create({
       data: { username: 'admin', displayName: '總控管理員', passwordHash: adminHash, role: 'admin' },

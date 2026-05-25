@@ -38,9 +38,15 @@ model Zone {
   gridY         Int
   type          String
   basePrice     Int
+  currentPrice  Int           @default(0)
   ownedByTeamId String?
   ownedByTeam   Team?         @relation(fields: [ownedByTeamId], references: [id])
   transactions  Transaction[]
+}
+
+model Setting {
+  key   String @id
+  value String
 }
 
 model Transaction {

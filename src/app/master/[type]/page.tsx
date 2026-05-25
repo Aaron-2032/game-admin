@@ -16,6 +16,7 @@ type Zone = {
   gridY: number
   type: string
   basePrice: number
+  currentPrice: number
   ownedByTeamId: string | null
   ownedByTeam: { name: string; color: string; code: string } | null
 }
@@ -48,7 +49,7 @@ const MASTER_LABELS: Record<string, { label: string; icon: React.ReactNode; colo
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  purchase: '購買', sale: '出售', fee: '費用', income: '收入',
+  purchase: '購買', sale: '出售', fee: '收錢', income: '給錢', rent: '租金',
   loan: '放款', repayment: '還款',
   long: '做多', short: '做空', long_profit: '做多獲利', short_profit: '做空獲利',
 }
@@ -163,8 +164,8 @@ export default function MasterPage() {
 const TYPE_BTNS = [
   { value: 'purchase', label: '購買',    active: 'bg-red-600 text-white' },
   { value: 'sale',     label: '出售',    active: 'bg-green-600 text-white' },
-  { value: 'fee',      label: '費用',    active: 'bg-orange-500 text-white' },
-  { value: 'income',   label: '收入',    active: 'bg-blue-600 text-white' },
+  { value: 'fee',      label: '收錢',    active: 'bg-orange-500 text-white' },
+  { value: 'income',   label: '給錢',    active: 'bg-blue-600 text-white' },
 ]
 
 function GenericPanel({
@@ -184,10 +185,11 @@ function GenericPanel({
   const [submitting, setSubmitting] = useState(false)
 
   const needsZone = formType === 'purchase' || formType === 'sale'
-  const availableZones = masterType === 'realestate' ? zones.filter((z) => z.type === 'realestate') : zones
+  const availableZones = (masterType === 'realestate' ? zones.filter((z) => z.type === 'realestate') : zones)
+    .sort((a, b) => a.code.localeCompare(b.code))
   const selectedTeam = teams.find((t) => t.id === teamId)
   const selectedZones = zones.filter((z) => zoneIds.includes(z.id))
-  const zonesTotal = selectedZones.reduce((s, z) => s + z.basePrice, 0)
+  const zonesTotal = selectedZones.reduce((s, z) => s + z.currentPrice, 0)
 
   function toggleZone(z: Zone) {
     setZoneIds((prev) =>
@@ -202,7 +204,7 @@ function GenericPanel({
     setSubmitting(true)
     if (needsZone && selectedZones.length > 0) {
       for (const z of selectedZones) {
-        const ok = await onSubmit({ teamId, zoneId: z.id, type: formType, amount: z.basePrice, note: note || null })
+        const ok = await onSubmit({ teamId, zoneId: z.id, type: formType, amount: z.currentPrice, note: note || null })
         if (!ok) break
       }
       setZoneIds([])
@@ -270,7 +272,7 @@ function GenericPanel({
                       {z.ownedByTeam && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: z.ownedByTeam.color }} />}
                     </div>
                     <div className="text-xs text-gray-400 truncate">{shortName}</div>
-                    <div className="text-xs text-gray-500">${z.basePrice.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">${z.currentPrice.toLocaleString()}</div>
                   </button>
                 )
               })}
@@ -280,7 +282,7 @@ function GenericPanel({
                 {selectedZones.map((z) => (
                   <div key={z.id} className="flex items-center justify-between text-xs bg-blue-950/50 rounded-lg px-3 py-1.5">
                     <span className="text-blue-300">[{z.code}] {z.name}</span>
-                    <span className="text-blue-400 font-semibold">${z.basePrice.toLocaleString()}</span>
+                    <span className="text-blue-400 font-semibold">${z.currentPrice.toLocaleString()}</span>
                   </div>
                 ))}
                 {selectedZones.length > 1 && (

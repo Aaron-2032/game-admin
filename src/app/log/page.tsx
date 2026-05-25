@@ -22,8 +22,9 @@ type Transaction = {
 const TYPE_LABELS: Record<string, { label: string; color: string; sign: '+' | '-' }> = {
   purchase:    { label: '購買',     color: 'text-red-400',    sign: '-' },
   sale:        { label: '出售',     color: 'text-green-400',  sign: '+' },
-  fee:         { label: '費用',     color: 'text-red-400',    sign: '-' },
-  income:      { label: '收入',     color: 'text-green-400',  sign: '+' },
+  fee:         { label: '收錢',     color: 'text-red-400',    sign: '-' },
+  income:      { label: '給錢',     color: 'text-green-400',  sign: '+' },
+  rent:        { label: '租金',     color: 'text-green-400',  sign: '+' },
   loan:        { label: '放款',     color: 'text-yellow-400', sign: '+' },
   repayment:   { label: '還款',     color: 'text-green-400',  sign: '-' },
   long:        { label: '做多',     color: 'text-red-400',    sign: '-' },
