@@ -314,7 +314,7 @@ function NextMonthPanel({ gameState, zones, teams, columnConfigs, onAdvance }: {
       const total = owned.reduce((s, z) => {
         const config = configMap[z.code.charAt(0)]
         if (!config) return s
-        const price = (config as Record<string, number>)[`price${newMonth}`] ?? z.currentPrice
+        const price = (config as unknown as Record<string, number>)[`price${newMonth}`] ?? z.currentPrice
         return s + Math.floor(price * config.rentRate / 100)
       }, 0)
       return { team, owned, total }
@@ -369,8 +369,8 @@ function NextMonthPanel({ gameState, zones, teams, columnConfigs, onAdvance }: {
             <p className="text-xs text-gray-400 mb-2">第 {newMonth} 月各區房價</p>
             <div className="grid grid-cols-6 gap-2">
               {columnConfigs.map((c) => {
-                const newPrice = (c as Record<string, number>)[`price${newMonth}`]
-                const diff = newPrice - c[`price${gameState.month}` as keyof ColumnConfig] as number
+                const newPrice = (c as unknown as Record<string, number>)[`price${newMonth}`]
+                const diff = newPrice - (c as unknown as Record<string, number>)[`price${gameState.month}`]
                 return (
                   <div key={c.column} className="bg-gray-800 rounded-lg p-2 text-center">
                     <div className="font-mono font-bold text-white text-sm">{c.column}</div>
