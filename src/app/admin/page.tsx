@@ -68,6 +68,8 @@ export default function AdminPage() {
   const [zones, setZones] = useState<Zone[]>([])
   const [gameState, setGameState] = useState<GameState>({ month: 1, rentRate: 10 })
   const [lastFetch, setLastFetch] = useState<string>(new Date(0).toISOString())
+  const [resetConfirm, setResetConfirm] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   const fetchData = useCallback(async (since?: string) => {
     const [txRes, teamRes, zoneRes, stateRes] = await Promise.all([
@@ -102,6 +104,13 @@ export default function AdminPage() {
     router.push('/')
   }
 
+  async function handleReset() {
+    setResetting(true)
+    await fetch('/api/seed', { method: 'POST' })
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/')
+  }
+
   const totalSpent = transactions.reduce((sum, t) => sum + t.amount, 0)
 
   return (
@@ -118,6 +127,18 @@ export default function AdminPage() {
           <a href="/log" className="text-xs text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-1">
             <ClipboardList className="w-3.5 h-3.5" />流水帳
           </a>
+          {!resetConfirm ? (
+            <button onClick={() => setResetConfirm(true)} className="text-xs text-red-500/70 hover:text-red-400 transition-colors">重置遊戲</button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-400">清除全部資料？</span>
+              <button onClick={handleReset} disabled={resetting}
+                className="text-xs bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded transition-colors disabled:opacity-50">
+                {resetting ? '重置中...' : '確認'}
+              </button>
+              <button onClick={() => setResetConfirm(false)} className="text-xs text-gray-500 hover:text-gray-300">取消</button>
+            </div>
+          )}
           <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">離開</button>
         </div>
       </header>
