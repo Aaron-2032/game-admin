@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Map, Home, Landmark,
+  Map, ClipboardList, Banknote, Home, Landmark,
   TrendingUp, Settings, Calendar, ChevronDown, Loader2, LayoutGrid,
 } from 'lucide-react'
 
