@@ -2,12 +2,15 @@ import { prisma } from './prisma'
 import { hashPassword } from './auth'
 
 const TEAMS = [
-  { name: '第一小隊', color: '#EF4444', code: 'T1' },
-  { name: '第二小隊', color: '#3B82F6', code: 'T2' },
-  { name: '第三小隊', color: '#22C55E', code: 'T3' },
-  { name: '第四小隊', color: '#F59E0B', code: 'T4' },
-  { name: '第五小隊', color: '#8B5CF6', code: 'T5' },
-  { name: '第六小隊', color: '#EC4899', code: 'T6' },
+  { name: '第一小隊', color: '#9CA3AF', code: 'T1' },
+  { name: '第二小隊', color: '#EAB308', code: 'T2' },
+  { name: '第三小隊', color: '#3B82F6', code: 'T3' },
+  { name: '第四小隊', color: '#22C55E', code: 'T4' },
+  { name: '第五小隊', color: '#F97316', code: 'T5' },
+  { name: '第六小隊', color: '#EF4444', code: 'T6' },
+  { name: '第七小隊', color: '#8B5CF6', code: 'T7' },
+  { name: '第八小隊', color: '#B45309', code: 'T8' },
+  { name: '第九小隊', color: '#EC4899', code: 'T9' },
 ]
 
 const ZONE_NAMES = [
@@ -19,9 +22,6 @@ const ZONE_NAMES = [
   '高雄市苓雅區', '高雄市前金區', '高雄市新興區', '高雄市前鎮區', '高雄市三民區', '高雄市鳳山區',
 ]
 
-const ZONE_TYPES = ['realestate', 'realestate', 'realestate', 'resource', 'special']
-
-// One price per column (A–F); all zones in the same column share this price
 const COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F']
 const COLUMN_PRICES = [300, 400, 500, 600, 800, 1000]
 
@@ -42,7 +42,6 @@ export async function runSeed() {
     TEAMS.map((t) => prisma.team.create({ data: { ...t, budget: 10000 } }))
   )
 
-  // Zones: all zones in column X share COLUMN_PRICES[x]
   for (let y = 0; y < 6; y++) {
     for (let x = 0; x < 6; x++) {
       const idx = y * 6 + x
@@ -53,7 +52,7 @@ export async function runSeed() {
           code: `${COLUMNS[x]}${y + 1}`,
           gridX: x,
           gridY: y,
-          type: ZONE_TYPES[idx % ZONE_TYPES.length],
+          type: 'realestate',
           basePrice: price,
           currentPrice: price,
         },
@@ -61,8 +60,6 @@ export async function runSeed() {
     }
   }
 
-  // Column configs: admin sets prices per month before the game starts
-  // Defaults: all 4 months same as base price (admin customises before game)
   await prisma.columnConfig.createMany({
     data: COLUMNS.map((col, i) => ({
       column: col,

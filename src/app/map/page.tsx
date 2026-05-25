@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Home, Pickaxe, Star, MapPin } from 'lucide-react'
+import { Home } from 'lucide-react'
 
 type Zone = {
   id: string
@@ -12,6 +12,7 @@ type Zone = {
   gridY: number
   type: string
   basePrice: number
+  currentPrice: number
   ownedByTeamId: string | null
   ownedByTeam: { name: string; color: string; code: string } | null
 }
@@ -22,15 +23,10 @@ type Team = {
   color: string
   code: string
   budget: number
+  debt: number
+  fundValue: number
+  realEstateValue: number
   _count: { ownedZones: number }
-}
-
-function ZoneTypeIcon({ type, className }: { type: string; className?: string }) {
-  const cls = className || 'w-3 h-3'
-  if (type === 'realestate') return <Home className={cls} strokeWidth={1.5} />
-  if (type === 'resource') return <Pickaxe className={cls} strokeWidth={1.5} />
-  if (type === 'special') return <Star className={cls} strokeWidth={1.5} />
-  return <MapPin className={cls} strokeWidth={1.5} />
 }
 
 export default function MapPage() {
@@ -73,12 +69,6 @@ export default function MapPage() {
 
   const myTeam = user?.teamId ? teams.find((t) => t.id === user.teamId) : null
 
-  const ZONE_TYPE_LABELS: Record<string, string> = {
-    realestate: '房地產',
-    resource: '資源區',
-    special: '特殊區',
-  }
-
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
@@ -118,7 +108,7 @@ export default function MapPage() {
                         title={zone.name}
                       >
                         <span className="text-gray-400 flex items-center justify-center">
-                          <ZoneTypeIcon type={zone.type} />
+                          <Home className="w-3 h-3" strokeWidth={1.5} />
                         </span>
                         <span className="text-[10px] text-gray-300 mt-0.5 font-mono">{zone.code}</span>
                         {isOwned && (
@@ -133,15 +123,6 @@ export default function MapPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-3">
-                {/* Zone type legend */}
-                <div className="flex items-center gap-3 text-xs text-gray-500 border-r border-gray-700 pr-3 mr-1">
-                  {(['realestate', 'resource', 'special'] as const).map((t) => (
-                    <span key={t} className="flex items-center gap-1">
-                      <ZoneTypeIcon type={t} className="w-3 h-3" />
-                      {ZONE_TYPE_LABELS[t]}
-                    </span>
-                  ))}
-                </div>
                 {teams.map((team) => (
                   <div key={team.id} className="flex items-center gap-1.5 text-xs">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: team.color }} />
@@ -170,16 +151,9 @@ export default function MapPage() {
                     <span className="text-gray-400">名稱</span>
                     <span className="text-white">{selected.name}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">類型</span>
-                    <span className="text-white flex items-center gap-1">
-                      <ZoneTypeIcon type={selected.type} className="w-3.5 h-3.5" />
-                      {ZONE_TYPE_LABELS[selected.type] || selected.type}
-                    </span>
-                  </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">底價</span>
-                    <span className="text-white">${selected.basePrice.toLocaleString()}</span>
+                    <span className="text-gray-400">現價</span>
+                    <span className="text-white">${selected.currentPrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">持有</span>
@@ -197,23 +171,43 @@ export default function MapPage() {
 
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
               <h3 className="font-semibold text-white mb-3">各隊狀態</h3>
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {teams.map((team) => {
                   const isMyTeam = team.id === user?.teamId
                   return (
                     <div
                       key={team.id}
-                      className={`rounded-lg p-3 ${isMyTeam ? 'bg-gray-700 ring-1' : 'bg-gray-800'}`}
-                      style={isMyTeam ? { borderColor: team.color } : {}}
+                      className={`rounded-lg p-3 ${isMyTeam ? 'bg-gray-700' : 'bg-gray-800'}`}
+                      style={isMyTeam ? { outline: `1px solid ${team.color}` } : {}}
                     >
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: team.color }} />
                         <span className="text-white text-sm font-medium">{team.name}</span>
                         {isMyTeam && <span className="text-xs text-gray-400">(我隊)</span>}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
-                        <span>預算: <span className="text-white">${team.budget.toLocaleString()}</span></span>
-                        <span>區域: <span className="text-white">{team._count.ownedZones}</span></span>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs">
+                        <div>
+                          <div className="text-gray-500">現金</div>
+                          <div className="text-white font-medium">${team.budget.toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500">負債</div>
+                          <div className={team.debt > 0 ? 'text-red-400 font-medium' : 'text-gray-500'}>
+                            ${team.debt.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500">基金現值</div>
+                          <div className={team.fundValue > 0 ? 'text-purple-400 font-medium' : 'text-gray-500'}>
+                            ${team.fundValue.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500">房產總值</div>
+                          <div className={team.realEstateValue > 0 ? 'text-green-400 font-medium' : 'text-gray-500'}>
+                            ${team.realEstateValue.toLocaleString()}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )

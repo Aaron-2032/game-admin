@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ClipboardList, Home, Landmark, ShoppingCart, Banknote, TrendingUp,
+  ClipboardList, Home, Landmark, Banknote, TrendingUp,
   Settings, ArrowLeft, X,
 } from 'lucide-react'
 
@@ -37,7 +37,6 @@ function MasterTypeIcon({ type }: { type: string }) {
   const cls = 'w-4 h-4'
   if (type === 'realestate') return <Home className={cls} strokeWidth={1.5} />
   if (type === 'bank') return <Landmark className={cls} strokeWidth={1.5} />
-  if (type === 'market') return <ShoppingCart className={cls} strokeWidth={1.5} />
   if (type === 'loan') return <Banknote className={cls} strokeWidth={1.5} />
   if (type === 'indexfund') return <TrendingUp className={cls} strokeWidth={1.5} />
   return <Settings className={cls} strokeWidth={1.5} />
