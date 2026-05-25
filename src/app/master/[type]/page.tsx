@@ -124,7 +124,7 @@ export default function MasterPage() {
           <a href="/log" className="text-xs text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-1">
             <ClipboardList className="w-3.5 h-3.5" />流水帳
           </a>
-          <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">登出</button>
+          <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">離開</button>
         </div>
       </header>
 

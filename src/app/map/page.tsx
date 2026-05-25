@@ -91,7 +91,7 @@ export default function MapPage() {
             </p>
           </div>
         </div>
-        <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">登出</button>
+        <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition-colors">離開</button>
       </header>
 
       <div className="p-6 max-w-6xl mx-auto">
