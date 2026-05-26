@@ -147,7 +147,7 @@ export default function MasterPage() {
         {masterType === 'loan' ? (
           <LoanPanel teams={teams} transactions={transactions} onSubmit={submitTx} />
         ) : masterType === 'indexfund' ? (
-          <IndexFundPanel teams={teams} transactions={transactions} onSubmit={submitTx} />
+          <IndexFundPanel zones={zones} teams={teams} transactions={transactions} onSubmit={submitTx} />
         ) : masterType === 'realestate' ? (
           <RealestatePanel zones={zones} teams={teams} transactions={transactions} onSubmit={submitTx} />
         ) : (
@@ -537,35 +537,51 @@ function LoanPanel({ teams, transactions, onSubmit }: {
 
 // ── Index Fund Panel ────────────────────────────────────────────────────────
 
-function IndexFundPanel({ teams, transactions, onSubmit }: {
+const COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F']
+
+function IndexFundPanel({ zones, teams, transactions, onSubmit }: {
+  zones: Zone[]
   teams: Team[]
   transactions: Transaction[]
-  onSubmit: (p: { teamId: string; type: string; amount: number; note?: string | null }) => Promise<boolean>
+  onSubmit: (p: { teamId: string; zoneId?: string | null; type: string; amount: number; note?: string | null }) => Promise<boolean>
 }) {
   const [direction, setDirection] = useState<'long' | 'short'>('long')
-  const [phase, setPhase] = useState<'open' | 'settle'>('open')
+  const [column, setColumn] = useState('')
   const [teamId, setTeamId] = useState('')
   const [amount, setAmount] = useState('')
-  const [settleResult, setSettleResult] = useState<'profit' | 'loss'>('profit')
-  const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const selectedTeam = teams.find((t) => t.id === teamId)
+  const repZones = Object.fromEntries(COLUMNS.map((col) => [col, zones.find((z) => z.code === `${col}1`)]))
+
+  // Build per-team per-column open position summary from transactions
+  const positionMap: Record<string, Record<string, { long: number; short: number }>> = {}
+  for (const tx of transactions) {
+    if (!['long', 'short', 'long_profit', 'short_profit'].includes(tx.type)) continue
+    if (!tx.zone) continue
+    const col = tx.zone.code.charAt(0)
+    const teamName = tx.team.name
+    if (!positionMap[teamName]) positionMap[teamName] = {}
+    if (!positionMap[teamName][col]) positionMap[teamName][col] = { long: 0, short: 0 }
+    if (tx.type === 'long') positionMap[teamName][col].long += tx.amount
+    if (tx.type === 'short') positionMap[teamName][col].short += tx.amount
+    if (tx.type === 'long_profit') positionMap[teamName][col].long -= tx.amount
+    if (tx.type === 'short_profit') positionMap[teamName][col].short -= tx.amount
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!teamId || !amount) return
+    if (!teamId || !amount || !column) return
     setSubmitting(true)
-    let type: string
-    if (phase === 'open') {
-      type = direction
-    } else {
-      type = direction === 'long'
-        ? (settleResult === 'profit' ? 'long_profit' : 'fee')
-        : (settleResult === 'profit' ? 'short_profit' : 'fee')
-    }
-    const ok = await onSubmit({ teamId, type, amount: Number(amount), note: note || null })
-    if (ok) { setAmount(''); setNote('') }
+    const repZone = repZones[column]
+    const ok = await onSubmit({
+      teamId,
+      zoneId: repZone?.id ?? null,
+      type: direction,
+      amount: Number(amount),
+      note: `${column}欄${direction === 'long' ? '做多' : '做空'}`,
+    })
+    if (ok) setAmount('')
     setSubmitting(false)
   }
 
@@ -573,46 +589,42 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
     <div className="grid md:grid-cols-2 gap-6">
       <div className="space-y-4">
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-          <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="font-semibold text-white mb-1 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-purple-400" strokeWidth={1.5} /> 房價指數基金操作
           </h2>
+          <p className="text-xs text-purple-400 mb-4">押注下個月指定欄位房價漲跌 · 月結時自動結算</p>
 
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <button onClick={() => setPhase('open')}
-              className={`py-2.5 rounded-lg font-semibold text-sm transition-colors ${phase === 'open' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              建立倉位
-            </button>
-            <button onClick={() => setPhase('settle')}
-              className={`py-2.5 rounded-lg font-semibold text-sm transition-colors ${phase === 'settle' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              結算平倉
-            </button>
-          </div>
-
+          {/* Direction */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <button onClick={() => setDirection('long')}
               className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${direction === 'long' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              <TrendingUp className="w-4 h-4" /> 做多
+              <TrendingUp className="w-4 h-4" /> 做多（漲）
             </button>
             <button onClick={() => setDirection('short')}
               className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${direction === 'short' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-              <TrendingDown className="w-4 h-4" /> 做空
+              <TrendingDown className="w-4 h-4" /> 做空（跌）
             </button>
           </div>
 
-          {phase === 'settle' && (
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <button onClick={() => setSettleResult('profit')}
-                className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${settleResult === 'profit' ? 'bg-green-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                <CheckCircle2 className="w-4 h-4" /> 獲利
-              </button>
-              <button onClick={() => setSettleResult('loss')}
-                className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${settleResult === 'loss' ? 'bg-red-800 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
-                <XCircle className="w-4 h-4" /> 虧損
-              </button>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Column selection */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">選擇欄位（區域）</label>
+              <div className="grid grid-cols-6 gap-1.5">
+                {COLUMNS.map((col) => {
+                  const zone = repZones[col]
+                  return (
+                    <button key={col} type="button" onClick={() => setColumn((prev) => prev === col ? '' : col)}
+                      className={`py-2.5 rounded-lg text-center transition-all ${column === col ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>
+                      <div className="font-bold text-sm">{col}</div>
+                      <div className="text-xs opacity-70">${zone?.currentPrice.toLocaleString() ?? '—'}</div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Team selection */}
             <div>
               <label className="block text-sm text-gray-400 mb-2">選擇小隊</label>
               <div className="grid grid-cols-3 gap-2">
@@ -630,28 +642,18 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
-                {phase === 'open' ? '投入金額 *' : '結算金額 *'}
-              </label>
+              <label className="block text-sm text-gray-400 mb-1">投入金額 *</label>
               <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500"
                 placeholder="輸入金額" min="1" required />
             </div>
 
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">備註（選填）</label>
-              <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                placeholder="例：指數從 100 漲到 120" />
-            </div>
-
-            <button type="submit" disabled={submitting || !teamId}
+            <button type="submit" disabled={submitting || !teamId || !column}
               className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
               {submitting
                 ? <><Loader2 className="w-4 h-4 animate-spin" />處理中...</>
-                : phase === 'open'
-                  ? <>{direction === 'long' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}確認{direction === 'long' ? '做多' : '做空'}</>
-                  : <>{settleResult === 'profit' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}確認結算（{settleResult === 'profit' ? '獲利' : '虧損'}）</>}
+                : <>{direction === 'long' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    確認{direction === 'long' ? '做多' : '做空'}{column ? `（${column}欄）` : ''}</>}
             </button>
           </form>
         </div>
@@ -662,17 +664,38 @@ function IndexFundPanel({ teams, transactions, onSubmit }: {
       <div className="space-y-4">
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
           <h3 className="font-semibold text-white mb-3">各小隊倉位摘要</h3>
-          <div className="space-y-2">
-            {teams.filter((t) => t.fundValue > 0).map((t) => (
-              <div key={t.id} className="bg-gray-800 rounded-lg p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color }} />
-                  <span className="text-sm font-medium text-white">{t.name}</span>
+          <div className="space-y-3">
+            {teams.map((t) => {
+              const cols = positionMap[t.name]
+              if (!cols) return null
+              const entries = Object.entries(cols).filter(([, v]) => v.long > 0 || v.short > 0)
+              if (entries.length === 0) return null
+              return (
+                <div key={t.id} className="bg-gray-800 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                    <span className="text-sm font-medium text-white">{t.name}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {entries.map(([col, pos]) => (
+                      <div key={col} className="flex gap-1">
+                        {pos.long > 0 && (
+                          <span className="text-xs bg-green-900/50 text-green-400 rounded px-2 py-0.5 flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />{col} 多 ${pos.long.toLocaleString()}
+                          </span>
+                        )}
+                        {pos.short > 0 && (
+                          <span className="text-xs bg-red-900/50 text-red-400 rounded px-2 py-0.5 flex items-center gap-1">
+                            <TrendingDown className="w-3 h-3" />{col} 空 ${pos.short.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <span className="text-sm font-semibold text-purple-400">${t.fundValue.toLocaleString()}</span>
-              </div>
-            ))}
-            {teams.every((t) => t.fundValue === 0) && (
+              )
+            })}
+            {Object.keys(positionMap).length === 0 && (
               <div className="text-center text-gray-500 text-sm py-4">目前無持倉記錄</div>
             )}
           </div>

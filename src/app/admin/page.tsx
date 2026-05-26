@@ -17,7 +17,7 @@ type Transaction = {
 
 type Team = {
   id: string; name: string; color: string; code: string; budget: number
-  _count: { ownedZones: number; transactions: number }
+  _count: { ownedZones: number }
 }
 
 type Zone = {
@@ -59,13 +59,12 @@ export default function AdminPage() {
   const [zones, setZones] = useState<Zone[]>([])
   const [gameState, setGameState] = useState<GameState>({ month: 1 })
   const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>([])
-  const [lastFetch, setLastFetch] = useState<string>(new Date(0).toISOString())
   const [resetConfirm, setResetConfirm] = useState(false)
   const [resetting, setResetting] = useState(false)
 
-  const fetchData = useCallback(async (since?: string) => {
+  const fetchData = useCallback(async () => {
     const [txRes, teamRes, zoneRes, stateRes, colRes] = await Promise.all([
-      fetch(`/api/transactions${since ? `?since=${since}` : ''}`),
+      fetch('/api/transactions'),
       fetch('/api/teams'),
       fetch('/api/zones'),
       fetch('/api/game/state'),
@@ -75,23 +74,18 @@ export default function AdminPage() {
     const [txData, teamData, zoneData, stateData, colData] = await Promise.all([
       txRes.json(), teamRes.json(), zoneRes.json(), stateRes.json(), colRes.json(),
     ])
-    if (since) {
-      setTransactions((prev) => [...txData, ...prev].slice(0, 100))
-    } else {
-      setTransactions(txData)
-    }
+    setTransactions(txData)
     setTeams(teamData)
     setZones(zoneData)
     setGameState(stateData)
     setColumnConfigs(colData)
-    setLastFetch(new Date().toISOString())
   }, [router])
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(() => fetchData(lastFetch), 5000)
+    const interval = setInterval(fetchData, 5000)
     return () => clearInterval(interval)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchData])
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -155,7 +149,7 @@ export default function AdminPage() {
                 <span className="font-semibold text-white">{team.name}</span>
                 <span className="ml-auto text-xs text-gray-400">{team.code}</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="text-center">
                   <div className="text-white font-bold">${team.budget.toLocaleString()}</div>
                   <div className="text-gray-500 text-xs">剩餘預算</div>
@@ -163,10 +157,6 @@ export default function AdminPage() {
                 <div className="text-center">
                   <div className="text-white font-bold">{team._count.ownedZones}</div>
                   <div className="text-gray-500 text-xs">持有區域</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-white font-bold">{team._count.transactions}</div>
-                  <div className="text-gray-500 text-xs">交易次數</div>
                 </div>
               </div>
             </div>

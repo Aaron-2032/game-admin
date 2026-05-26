@@ -60,13 +60,21 @@ export async function runSeed() {
     }
   }
 
+  const MONTHLY_PRICES: [number, number, number, number][] = [
+    [300, 330, 270, 300],   // A
+    [400, 360, 440, 400],   // B
+    [500, 600, 500, 450],   // C
+    [600, 540, 600, 660],   // D
+    [800, 880, 800, 720],   // E
+    [1000, 900, 1000, 1100], // F
+  ]
   await prisma.columnConfig.createMany({
     data: COLUMNS.map((col, i) => ({
       column: col,
-      price1: COLUMN_PRICES[i],
-      price2: COLUMN_PRICES[i],
-      price3: COLUMN_PRICES[i],
-      price4: COLUMN_PRICES[i],
+      price1: MONTHLY_PRICES[i][0],
+      price2: MONTHLY_PRICES[i][1],
+      price3: MONTHLY_PRICES[i][2],
+      price4: MONTHLY_PRICES[i][3],
       rentRate: 10,
     })),
   })
